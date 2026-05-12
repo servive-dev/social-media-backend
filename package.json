@@ -1,0 +1,36 @@
+{
+  "name": "social-media-backend",
+  "version": "1.0.0",
+  "description": " Website where people can connect to each others.",
+  "keywords": [
+    "social-media",
+    "backend"
+  ],
+  "homepage": "https://github.com/servive-dev/social-media-backend#readme",
+  "bugs": {
+    "url": "https://github.com/servive-dev/social-media-backend/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/servive-dev/social-media-backend.git"
+  },
+  "license": "ISC",
+  "author": "Om Yadav",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.6.2",
+    "morgan": "^1.10.1",
+    "multer": "^2.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14",
+    "prettier": "^3.8.3"
+  }
+}
