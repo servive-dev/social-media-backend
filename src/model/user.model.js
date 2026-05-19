@@ -9,12 +9,13 @@ const userSchema = new mongoose.Schema(
         username: {
             type: String,
             required: true,
-            // unique: true,
             lowercase: true,
             trim: true,
+            unique: true,
             minlength: 3,
             maxlength: 30,
-        },
+            index: true
+            },
 
         fullName: {
             type: String,
@@ -27,10 +28,11 @@ const userSchema = new mongoose.Schema(
         email: {
             type: String,
             required: true,
-            // unique: true,
             lowercase: true,
             trim: true,
             validate: [validator.isEmail, "Invalid email"],
+            unique: true,
+            index: true
         },
 
         phone: {
@@ -138,18 +140,16 @@ const userSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-userSchema.index({ username: 1 });
-userSchema.index({ email: 1 });
 userSchema.index({ status: 1 });
 
 // Hash the password before saving the user
-userSchema.pre("save", async function (next) {
+userSchema.pre("save", async function () {
     if (!this.isModified("password")) return;
 
     const salt = await bcrypt.genSalt(8);
     this.password = await bcrypt.hash(this.password, salt);
 
-    this.passwordChangedAt = Date.now();
+    this.passwordChangedAt = new Date();
 
 });
 
