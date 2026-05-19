@@ -1,0 +1,7 @@
+export const NOTIFICATION_TYPES = {
+   LIKE: "LIKE",
+   FOLLOW: "FOLLOW",
+   COMMENT: "COMMENT",
+   POST: "POST",
+   MESSAGE: "MESSAGE"
+}

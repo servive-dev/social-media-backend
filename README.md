@@ -159,3 +159,116 @@ This project supports:
 
 ---
 
+# Flow of data to get notification
+---
+```
+FRONTEND
+  ↓
+routes/post.routes.js
+  ↓
+controllers/post.controller.js
+  ↓
+models/post.model.js
+  ↓
+services/notification.service.js
+  ↓
+queues/notification.queue.js
+  ↓
+REDIS (BullMQ storage)
+  ↓
+workers/notification.worker.js
+  ↓
+models/notification.model.js
+  ↓
+(optional) services/email.service.js
+  ↓
+(optional) socket/socket.js
+  ↓
+USER gets notification
+
+```
+```
+1. User clicks "LIKE"
+        ↓
+2. Frontend calls API
+   POST /like-post
+        ↓
+3. Backend updates MongoDB
+   (post likes increment)
+        ↓
+4. Backend pushes job to BullMQ queue
+   notificationQueue.add()
+        ↓
+5. Redis stores job
+        ↓
+6. Worker picks job
+        ↓
+7. Worker processes:
+   → create notification
+   → send email (optional)
+        ↓
+8. Save notification in DB
+        ↓
+9. (Optional) send real-time socket event
+        ↓
+10. User sees notification
+```
+
+# OverAll Architecture
+```
+                    ┌──────────────────────┐
+                    │      CLIENT          │
+                    │ (Mobile / Web App)   │
+                    └─────────┬────────────┘
+                              │ HTTP Request
+                              ▼
+                    ┌──────────────────────┐
+                    │   EXPRESS API        │
+                    │ (Backend Server)     │
+                    └─────────┬────────────┘
+                              │
+        ┌─────────────────────┼──────────────────────┐
+        │                     │                      │
+        ▼                     ▼                      ▼
+
+   MongoDB DB          Redis Cache            BullMQ Queue
+ (Users, Posts)     (Fast data layer)     (Background jobs)
+        │                     │                      │
+        │                     │                      │
+        ▼                     ▼                      ▼
+
+                    ┌──────────────────────┐
+                    │     WORKERS          │
+                    │ (Background jobs)    │
+                    └─────────┬────────────┘
+                              │
+              ┌───────────────┼────────────────┐
+              ▼               ▼                ▼
+
+        Email Worker   Notification Worker   Other Workers
+        (Nodemailer)   (Likes, Follows)     (Media, etc)
+
+                              │
+                              ▼
+                    ┌──────────────────────┐
+                    │   USER GETS RESULT   │
+                    │ Email / Notification │
+                    └──────────────────────┘
+```
+---
+
+# Final Flow
+```
+Frontend
+   ↓
+Backend API
+   ↓
+Redis + Queue
+   ↓
+Workers
+   ↓
+MongoDB + Email + Notifications
+   ↓
+User sees updates
+
+```

@@ -1,109 +1,193 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
-
+import validator from "validator";
 
 const userSchema = new mongoose.Schema(
-  {
-    username: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-      index: true,
-    },
+    {
+        // ================== Basic Info ==================
+        username: {
+            type: String,
+            required: true,
+            // unique: true,
+            lowercase: true,
+            trim: true,
+            minlength: 3,
+            maxlength: 30,
+        },
 
-    fullName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+        fullName: {
+            type: String,
+            required: true,
+            minlength: 3,
+            maxlength: 100,
+            trim: true,
+        },
 
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      index: true,
-    },
+        email: {
+            type: String,
+            required: true,
+            // unique: true,
+            lowercase: true,
+            trim: true,
+            validate: [validator.isEmail, "Invalid email"],
+        },
 
-    password: {
-      type: String,
-      required: true,
-      select: false,
-    },
+        phone: {
+            type: String,
+            unique: true,
+            sparse: true, // allow multiple null values
+            trim:true,
+            default: undefined
+        },
 
-    avatar: {
-      type: String,
-      default: "",
-    },
+        dob: {
+            type: Date,
+            required: true,
+        },
 
-    bio: {
-      type: String,
-      maxlength: 150,
-      default: "",
-    },
+        password: {
+            type: String,
+            required: true,
+            minlength: 6,
+            maxlength: 100,
+            select: false,
+        },
 
-    website: {
-      type: String,
-      default: "",
-    },
+        avatar: {
+            type: String,
+            default: "",
+        },
 
-    isPrivate: {
-      type: Boolean,
-      default: false,
-    },
+        bio: {
+            type: String,
+            maxlength: 150,
+            default: "",
+        },
 
-    isVerified: {
-      type: Boolean,
-      default: false,
-    },
+        website: {
+            type: String,
+            default: "",
+            validate: {
+                validator: function (v) {
+                    return (
+                        v === "" ||
+                        validator.isURL(v, { require_protocol: true })
+                    );
+                },
+                message: "Invalid URL. Must include http:// or https://",
+            },
+        },
 
-    lastSeen: {
-      type: Date,
-      default: null,
+        // ================== Account Settings ==================
+
+        isPrivate: {
+            type: Boolean,
+            default: false,
+        },
+
+        isVerified: {
+            type: Boolean,
+            default: false,
+        },
+
+        status: {
+            type: String,
+            enum: ["active", "banned", "deleted"],
+            default: "active",
+        },
+
+        // ================== Activity Tracking ==================
+        lastSeen: {
+            type: Date,
+            default: null,
+        },
+
+        lastLogin: {
+            type: Date,
+            default: null,
+        },
+
+        loginCount: {
+            type: Number,
+            default: 0,
+        },
+
+        // ================== Relations counters ==================
+        followersCount: {
+            type: Number,
+            default: 0,
+        },
+
+        followingCount: {
+            type: Number,
+            default: 0,
+        },
+
+        postsCount: {
+            type: Number,
+            default: 0,
+        },
+
+        // ================== Security & Permissions ==================
+        passwordChangedAt: {
+            type: Date,
+            default: null,
+        },
     },
-  },
-  { timestamps: true }
+    { timestamps: true }
 );
 
+userSchema.index({ username: 1 });
+userSchema.index({ email: 1 });
+userSchema.index({ status: 1 });
+
 // Hash the password before saving the user
-userSchema.pre("save", async function(next) {
-    if (!this.isModified("password")) {
-        return next();
-    }
-      try {
-         const salt = await bcrypt.genSalt(10);
-         this.password = await bcrypt.hash(this.password, salt);
-         next();
-      } catch (err) {
-         next(err);
-      }
+userSchema.pre("save", async function (next) {
+    if (!this.isModified("password")) return;
+
+    const salt = await bcrypt.genSalt(8);
+    this.password = await bcrypt.hash(this.password, salt);
+
+    this.passwordChangedAt = Date.now();
+
 });
 
 // Method to compare entered password with hashed password
-userSchema.methods.matchPassword = async function(enteredPassword) {
+userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // Method to generate Access Token only
-userSchema.methods.generateAccessToken = function() {
+userSchema.methods.generateAccessToken = function () {
     return jwt.sign(
-         { id: this._id, username: this.username },
-         process.env.JWT_SECRET,
-         { expiresIn: "15m" }
+        {
+            id: this._id,
+            username: this.username,
+            status: this.status,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "15m" }
     );
 };
 
 // Method to generate Refresh Token only
-userSchema.methods.generateRefreshToken = function() {
+userSchema.methods.generateRefreshToken = function () {
     return jwt.sign(
-         { id: this._id },
-         process.env.JWT_REFRESH_SECRET,
-         { expiresIn: "7d" }
+        {
+            id: this._id,
+        },
+        process.env.JWT_REFRESH_SECRET,
+        { expiresIn: "7d" }
     );
 };
+
+// Remove deleted and banned users from all find queries
+// userSchema.pre(/^find/, function (next) {
+//     this.find({
+//         status: { $nin: ["deleted", "banned"] },
+//     });
+//     next();
+// });
 
 export const User = mongoose.model("User", userSchema);

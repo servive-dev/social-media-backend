@@ -1,21 +1,23 @@
 import mongoose from "mongoose";
 
 const connectDB = async () => {
-    try {
+  try {
+    const DB_URI =
+      process.env.NODE_ENV === "production"
+        ? process.env.MONGODB_URI_ATLAS
+        : process.env.MONGODB_URI;
 
-        const connectionInstance = await mongoose.connect(
-            `${process.env.MONGODB_URI}/${process.env.DB_NAME}`
-        );
-        console.log(
-            `MongoDB Connected !! DB HOST: ${connectionInstance.connection.host}`
-        );
-
-    } catch (error) {
-
-        console.log("MongoDB connection FAILED ", error);
-
-        process.exit(1);
+    if (!DB_URI) {
+      throw new Error("MongoDB URI not found in environment variables");
     }
+
+    const connection = await mongoose.connect(DB_URI);
+
+    console.log(`✅ MongoDB Connected: ${connection.connection.host}`);
+  } catch (error) {
+    console.error("❌ MongoDB connection failed:", error.message);
+    process.exit(1); // app crash if DB not connected
+  }
 };
 
 export default connectDB;
