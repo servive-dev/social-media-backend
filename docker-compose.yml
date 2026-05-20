@@ -1,68 +1,11 @@
 version: "3.9"
 
-services:
+services: 
 
-  api:
-    build: .
+  redis: 
 
-    container_name: instagram-api
-
-    ports:
-      - "5001:5001"
-
-    env_file:
-      - .env
-
-    depends_on:
-      - redis
-      - mongo
-
-    volumes:
-      - .:/app
-      - /app/node_modules
-
-    command: npm run dev
-
-  email-worker:
-    build: .
-
-    container_name: email-worker
-
-    env_file:
-      - .env
-
-    depends_on:
-      - redis
-      - mongo
-
-    volumes:
-      - .:/app
-      - /app/node_modules
-
-    command: npm run worker:email
-
-  redis:
     image: redis:7-alpine
-
     container_name: redis
-
     ports:
       - "6379:6379"
-
-    volumes:
-      - redis_data:/data
-
-  mongo:
-    image: mongo:7
-
-    container_name: mongo
-
-    ports:
-      - "27017:27017"
-
-    volumes:
-      - mongo_data:/data/db
-
-volumes:
-  mongo_data:
-  redis_data:
+    restart: always

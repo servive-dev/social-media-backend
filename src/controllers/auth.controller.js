@@ -7,6 +7,14 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { EMAIL_TYPES } from "../constants/email.constant.js";
 import { addEmailJob } from "../queues/email.queue.js";
 
+/*
+TODO: REFACTOR THE FOLDER STRUCTURE 
+TODO: MAKE A FILE REDIS.SERVICE.JS DO WORK LIKE LIKE SAVE TEMP USER--(EMAIL, DATA), GET TEMP USER BY EMAIL AND DELETER USER BY EMAIL
+TODO: REGISTER CONTROLLER FLOW HEAVY REMOVE MONGO QUERY AND IMPLEMENT REDIS QUERIES
+TODO: IN REDIS STORE USER TEMPORARY BEFORE THAT VERIFY EMAIL IS VERIFIED
+TODO: EXPENSIVE OPERATION ARE DONE BY WORKERS IN BACKGORUND 
+TODO: ONLY 2 FUNCTION RUNS 1st IS STORE USER AND 2nd IS ADD TO EMAIL JOB  
+*/
 
 // Controller for user registration
 export const registerUser = asyncHandler(async (req, res) => {
