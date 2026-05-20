@@ -11,7 +11,8 @@ const connectDB = async () => {
       throw new Error("MongoDB URI not found in environment variables");
     }
 
-    const connection = await mongoose.connect(DB_URI);
+    const connection = await mongoose.connect(DB_URI, {dbName: process.env.DB_NAME});
+    console.log("DB NAME :", connection.connection.name)
 
     console.log(`✅ MongoDB Connected: ${connection.connection.host}`);
   } catch (error) {

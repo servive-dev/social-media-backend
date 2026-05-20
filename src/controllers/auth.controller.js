@@ -15,70 +15,43 @@ TODO: IN REDIS STORE USER TEMPORARY BEFORE THAT VERIFY EMAIL IS VERIFIED
 TODO: EXPENSIVE OPERATION ARE DONE BY WORKERS IN BACKGORUND 
 TODO: ONLY 2 FUNCTION RUNS 1st IS STORE USER AND 2nd IS ADD TO EMAIL JOB  
 */
-
-// Controller for user registration
 export const registerUser = asyncHandler(async (req, res) => {
-   // Extract user details from the request body
+
    const { username, fullName, email, phone, dob, password } = req.body;
 
-   // Build the query to check for existing username, email, or phone
-   const query = {
-      $or: [
-         { username },
-         { email },
-      ],
-   };
-
-   if (phone) {
-      query.$or.push({ phone }); 
-   }
-
-   // Check if the username or email already exists
-   const existingUser = await User.findOne(query);
-   
-   if (existingUser) {
-      throw new ApiError(400, "Username, email, or phone already exists");
-   }
-
-   // Create a new user
    const createdUser = await User.create({
       username,
       fullName,
       email,
-      phone: phone ? phone : undefined,
+      phone: phone || undefined,
       dob,
       password
    });
-   
-   // Fetch the newly created user without the password field
-   const newUser = await User.findById(createdUser._id).select("-password");
 
-   if (!newUser) {
-      throw new ApiError(500, "Failed to create user");
-   }
-
-   // queue email
-   await addEmailJob({
+   // fire & forget (non-blocking)
+   addEmailJob({
       type: EMAIL_TYPES.WELCOME,
+      to: createdUser.email,
+      username: createdUser.username
+   }).catch((err) => {
+      console.error("EMAIL JOB FAILED IN ADD:", err);
+   });
 
-      to: newUser.email,
+   const { _id, username: uname, email: mail, active } = createdUser;
 
-      username: newUser.username
-   })
-
-   // return the response with the newly created user data
-   return res
-   .status(201)
-   .json(
+   return res.status(201).json(
       new ApiResponse(
          201,
-         newUser,
-         "User registered successfully. Please log in to continue.",
+         {
+            userId: _id,
+            username: uname,
+            email: mail,
+            active
+         },
+         "User registered successfully"
       )
-   )
-   
+   );
 });
-
 // Controller for user login 
 export const loginUser = asyncHandler(async (req, res) => {
    const {username, email, password} = req.body;

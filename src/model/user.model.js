@@ -166,8 +166,8 @@ userSchema.methods.generateAccessToken = function () {
             username: this.username,
             status: this.status,
         },
-        process.env.JWT_SECRET,
-        { expiresIn: "15m" }
+        process.env.ACCESS_TOKEN_SECRET_KEY,
+        { expiresIn: process.env.ACCESS_TOKEN_EXPIRED }
     );
 };
 
@@ -177,8 +177,8 @@ userSchema.methods.generateRefreshToken = function () {
         {
             id: this._id,
         },
-        process.env.JWT_REFRESH_SECRET,
-        { expiresIn: "7d" }
+        process.env.REFRESH_TOKEN_SECRET_KEY,
+        { expiresIn: process.env.REFRESH_TOKEN_EXPIRED }
     );
 };
 

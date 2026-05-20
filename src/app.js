@@ -3,6 +3,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import { errorHandler } from './middleware/error.middleware.js';
+import { logger } from './middleware/logger.middleware.js';
+import { notFound } from './middleware/notFound.middleware.js';
 
 
 const app = express();
@@ -29,7 +32,8 @@ app.use(express.static("public"))
 // Enable cookie parsing
 app.use(cookieParser());
 
-
+// Custom Middleware to track request
+app.use(logger);
 
 // Basic route for testing
 app.get('/', (req, res) => {
@@ -44,5 +48,11 @@ import userRoutes from './routes/auth.route.js';
 
 // route declaration
 app.use('/api/v1/auth', userRoutes);
+
+// CHECK INVALID ROUTES
+app.use(notFound);
+
+// ERROR CHECK MIDDLEWARE 
+app.use(errorHandler);
 
 export default app;
