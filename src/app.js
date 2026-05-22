@@ -35,6 +35,9 @@ app.use(cookieParser());
 // Custom Middleware to track request
 app.use(logger);
 
+
+
+
 // Basic route for testing
 app.get('/', (req, res) => {
   res.send('Welcome to the Social Media Backend API! 🏠');
@@ -48,6 +51,8 @@ import userRoutes from './routes/auth.route.js';
 
 // route declaration
 app.use('/api/v1/auth', userRoutes);
+
+
 
 // CHECK INVALID ROUTES
 app.use(notFound);

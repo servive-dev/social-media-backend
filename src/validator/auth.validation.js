@@ -44,3 +44,34 @@ export const registerSchema = z.object({
         .min(6, "Password must be at least 6 characters long")
         .max(100, "Password cannot exceed 100 characters"),
 });
+
+export const loginSchema = z.object({
+    username: z
+        .string()
+        .min(3, "Username must be at least 3 characters")
+        .max(30, "Username must be at most 30 characters")
+        .regex(
+            /^[a-zA-Z][a-zA-Z0-9_]*$/,
+            "Username must start with a letter and can only contain letters, numbers, and underscore"
+        ),
+
+    email: z
+        .string()
+        .email("Invalid email address")
+        .transform((email) => email.toLowerCase().trim())
+        .optional(),
+
+    phone: z
+        .string()
+        .regex(/^[0-9]{10}$/, "Phone must be 10 digits")
+        .optional(),
+
+    password: z
+        .string()
+        .min(6, "Password must be at least 6 characters long")
+        .max(100, "Password cannot exceed 100 characters"),
+});
+
+export const logoutSchema = z.object({
+  refreshToken: z.string().min(10, "Invalid refresh token"),
+});

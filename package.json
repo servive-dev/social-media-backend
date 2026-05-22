@@ -39,6 +39,8 @@
     "nodemailer": "^8.0.7",
     "redis": "^5.12.1",
     "sharp": "^0.34.5",
+    "socket.io": "^4.8.3",
+    "ua-parser-js": "^2.0.10",
     "validator": "^13.15.35",
     "zod": "^4.4.3"
   },

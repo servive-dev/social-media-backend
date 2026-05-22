@@ -21,7 +21,7 @@ const sessionSchema = new mongoose.Schema(
  
     deviceType: {
       type: String,
-      enum: ["web", "mobile", "tablet", "desktop", "unknown"],
+      enum: ["web", "mobile", "tablet", "desktop", "unknown", "api-client"],
       default: "mobile",
     },
 
@@ -35,7 +35,7 @@ const sessionSchema = new mongoose.Schema(
 
     loginMethod: {
       type: String,
-      enum: ["email", "google", "phone", "unknown"],
+      enum: ["email", "google", "phone", "username","unknown"],
       default: "email",
     },
 

@@ -13,85 +13,97 @@ import { deadLetterQueue } from "../queues/deadLetter.queue.js";
 console.log("👷 Worker started...");
 
 const worker = new Worker(
-  QUEUE_NAMES.EMAIL,
+    QUEUE_NAMES.EMAIL,
 
-  async (job) => {
-    console.log("📩 Processing:", job.data);
+    async (job) => {
+        console.log("📩 Processing:", job.data);
 
-    const { type, to, username, device, browser, ipAddress } = job.data;
-
-    switch (type) {
-
-      case EMAIL_TYPES.WELCOME:
-        try {
-          await sendEmail({
+        const {
+            type,
             to,
-            subject: "Welcome 🚀",
-            html: welcomeTemplate({ username }),
-          });
-        } catch (error) {
-          console.error("Welcome email failed:", error);
-          throw error;
-        }
-        break;
+            username,
+            deviceInfo,
+            deviceType,
+            loginMethod,
+            ip,
+            location,
+            email,
+        } = job.data;
+        console.log(job.data, "JOB DATA")
 
-      case EMAIL_TYPES.LOGIN_ALERT:
-        try {
-          await sendEmail({
-            to,
-            subject: "New Login Detected",
-            html: loginAlertTemplate({
-              username,
-              device,
-              browser,
-              ipAddress,
-            }),
-          });
-        } catch (error) {
-          console.error("Login email failed:", error);
-          throw error;
-        }
-        break;
+        switch (type) {
+            case EMAIL_TYPES.WELCOME:
+                try {
+                    await sendEmail({
+                        to,
+                        subject: "Welcome 🚀",
+                        html: welcomeTemplate({ username }),
+                    });
+                } catch (error) {
+                    console.error("Welcome email failed:", error);
+                    throw error;
+                }
+                break;
 
-      default:
-        console.log("Unknown email type");
+            case EMAIL_TYPES.LOGIN_ALERT:
+                try {
+                    await sendEmail({
+                        to,
+                        subject: "New Login Detected",
+                        html: loginAlertTemplate({
+                            username,
+                            email,
+                            deviceInfo,
+                            deviceType,
+                            loginMethod,
+                            location,
+                            ip,
+                        }),
+                    });
+                } catch (error) {
+                    console.error("Login email failed:", error);
+                    throw error;
+                }
+                break;
+
+            default:
+                console.log("Unknown email type");
+        }
+
+        return true;
+    },
+
+    {
+        connection: bullMQConnection,
+        concurrency: 3,
     }
-
-    return true;
-  },
-
-  {
-    connection: bullMQConnection,
-    concurrency: 3,
-  }
 );
 
-
 worker.on(QUEUE_STATES.READY, () => {
-  console.log("🚀 Worker ready");
+    console.log("🚀 Worker ready");
 });
 
 worker.on(QUEUE_STATES.COMPLETED, (job) => {
-  console.log(`✅ Job ${job.id} completed`);
+    console.log(`✅ Job ${job.id} completed`);
 });
 
 worker.on(QUEUE_STATES.FAILED, (job, err) => {
-  console.log(`❌ Job ${job.id} failed:`);
+    console.log(`❌ Job ${job.id} failed:`);
 
-  deadLetterQueue.add("FAILED_EMAIL", {
-    originalData: job.data,
-    error: err.message,
-  }).catch(console.error);
+    deadLetterQueue
+        .add("FAILED_EMAIL", {
+            originalData: job.data,
+            error: err.message,
+        })
+        .catch(console.error);
 });
 
 worker.on(QUEUE_STATES.ERROR, (err) => {
-  console.error("🔥 Worker error:", err);
+    console.error("🔥 Worker error:", err);
 });
-
 
 process.on("SIGINT", async () => {
-  console.log("🛑 Shutting down worker...");
-  await worker.close();
-  process.exit(0);
+    console.log("🛑 Shutting down worker...");
+    await worker.close();
+    process.exit(0);
 });
-
