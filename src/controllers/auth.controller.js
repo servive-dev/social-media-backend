@@ -7,48 +7,168 @@ import { EMAIL_TYPES } from "../constants/email.constant.js";
 import { addEmailJob } from "../queues/email.queue.js";
 import { createSession } from "../utils/createSession.js";
 import { getDeviceInfo } from "../utils/getDeviceInfo.js";
+import { createOTP } from "../services/otp.service.js"
+import redisClient from "../config/redis.config.js";
 
 // Controller for register user
 export const registerUser = asyncHandler(async (req, res) => {
-    const { username, fullName, email, phone, dob, password } = req.body;
+    const { username: uname, fullName, email: mail, phone, dob, password } = req.body;
 
     const createdUser = await User.create({
-        username,
+        username: uname,
         fullName,
-        email,
+        email: mail,
         phone: phone || undefined,
         dob,
         password,
+        active: false,
     });
 
-    // fire & forget (non-blocking)
-    addEmailJob({
-        type: EMAIL_TYPES.WELCOME,
-        to: createdUser.email,
-        username: createdUser.username,
-    }).catch((err) => {
-        console.error("EMAIL JOB FAILED IN ADD:", err);
-    });
+    const { _id, username, email, active } = createdUser;
 
-    const { _id, username: uname, email: mail, active } = createdUser;
+    // otp created 
+    await createOTP({
+        userId: _id,
+        email,
+        username,
+    });
 
     return res.status(201).json(
         new ApiResponse(
             201,
             {
                 userId: _id,
-                username: uname,
-                email: mail,
+                username,
+                email,
                 active,
             },
-            "User registered successfully"
+            "OTP send successfully"
         )
     );
 });
 
+// verify otp
+export const verifyOtp = asyncHandler(async (req, res) => {
+    const { userId, otp } = req.body;
+
+    if (!userId || !otp) {
+        throw new ApiError(400, "UserId and OTP are required");
+    }
+
+    // 1. get OTP from Redis
+    const storedOtp = await redisClient.get(`otp:${userId}`);
+
+    if (!storedOtp) {
+        throw new ApiError(400, "OTP expired or not found");
+    }
+
+    // 2. OPTIONAL: attempt tracking (anti brute force)
+    const attemptKey = `otp:attempts:${userId}`;
+    const attempts = await redisClient.get(attemptKey);
+
+    if (attempts && parseInt(attempts) >= 5) {
+        await redisClient.del(`otp:${userId}`);
+        throw new ApiError(429, "Too many attempts. OTP blocked.");
+    }
+
+    // 3. check OTP match
+    if (storedOtp !== otp) {
+        // increase attempts
+        await redisClient.incr(attemptKey);
+        await redisClient.expire(attemptKey, 300); // reset in 5 min
+
+        throw new ApiError(400, "Invalid OTP");
+    }
+
+    // 4. OTP is correct → activate user
+    const user = await User.findByIdAndUpdate(
+        userId,
+        { active: true },
+        { new: true }
+    );
+
+    console.log("user is active now :", user.active)
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    // 5. cleanup Redis
+    await redisClient.del(`otp:${userId}`);
+    await redisClient.del(attemptKey);
+
+    // 6. send welcome email (async, non-blocking)
+    addEmailJob({
+        type: EMAIL_TYPES.WELCOME,
+        to: user.email,
+        username: user.username,
+    }).catch((err) => {
+        console.error("WELCOME EMAIL FAILED:", err);
+    });
+
+    // 7. response
+    return res.status(200).json({
+        success: true,
+        message: "OTP verified successfully",
+        user: {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            active: user.active,
+        },
+    });
+});
+
+// Resend OTP
+export const resendOtp = asyncHandler(async (req, res) => {
+    const { userId } = req.body;
+
+    if (!userId) {
+        throw new ApiError(400, "UserId is required");
+    }
+
+    // 1. cooldown check (60 sec rule)
+    const cooldownKey = `otp:cooldown:${userId}`;
+
+    const isBlocked = await redisClient.get(cooldownKey);
+
+    if (isBlocked) {
+        throw new ApiError(
+            429,
+            "Please wait 60 seconds before requesting new OTP"
+        );
+    }
+
+    // 2. find user
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    // 3. OPTIONAL: delete old OTP before generating new one
+    await redisClient.del(`otp:${userId}`);
+
+    // 4. generate new OTP + send email (IMPORTANT)
+    await createOTP({
+        userId: user._id,
+        email: user.email,
+        username: user.username,
+    });
+
+    // 5. set cooldown (60 seconds)
+    await redisClient.set(cooldownKey, "1", {
+        EX: 60,
+    });
+
+    return res.status(200).json({
+        success: true,
+        message: "OTP resent successfully",
+    });
+});
+
 // Controller for user login
 export const loginUser = asyncHandler(async (req, res) => {
-
     const { username, email, password } = req.body;
 
     const query = {
@@ -154,11 +274,11 @@ export const loginUser = asyncHandler(async (req, res) => {
     );
 });
 
-// Controller for user logout in current device 
+// Controller for user logout in current device
 export const logOutUser = asyncHandler(async (req, res) => {
     const userId = req.user?.id;
-    console.log("USER ID", userId)
-    
+    console.log("USER ID", userId);
+
     const refreshToken = req.cookies?.refreshToken;
     // console.log("refershtoken ID", refreshToken)
 
@@ -198,20 +318,20 @@ export const logOutUser = asyncHandler(async (req, res) => {
         sameSite: "strict",
     });
 
-    return res.status(200).json(
-        new ApiResponse(200, {}, "Logged out from this device only")
-    );
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Logged out from this device only"));
 });
 
 // Controller for user logOut in all device
-export const logOutAll = asyncHandler( async(req, res) => 
-    {
+export const logOutAll = asyncHandler(async (req, res) => {
     const userId = req.user?.id;
-    console.log("USER ID", userId , req.user)
+    console.log("USER ID", userId, req.user);
 
-    const refreshToken = req.cookies?.refreshToken || req.header("Authorization").replace("Bearer", "").trim()
-    console.log("REFRESH TOKEN ID :", refreshToken)
-
+    const refreshToken =
+        req.cookies?.refreshToken ||
+        req.header("Authorization").replace("Bearer", "").trim();
+    console.log("REFRESH TOKEN ID :", refreshToken);
 
     if (!userId) {
         throw new ApiError(401, "Unauthorized user");
@@ -222,30 +342,26 @@ export const logOutAll = asyncHandler( async(req, res) =>
     }
 
     // 1. delete the session
-    const deletedAllSessions = await Session.deleteMany({userId})
+    const deletedAllSessions = await Session.deleteMany({ userId });
 
     // 2.update lastseen
     await User.findByIdAndUpdate(userId, {
-        lastSeen: new Date()
-    }) 
+        lastSeen: new Date(),
+    });
 
     // 3. All devices clear cookies
     res.clearCookie("accessToken", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict"
-    })
+        sameSite: "strict",
+    });
     res.clearCookie("refreshToken", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict"
-    })
+        sameSite: "strict",
+    });
 
-    return res.status(200).json(
-        new ApiResponse(
-            200,
-            {},
-            "LogOut User in All devices"
-        )
-    )
-})
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "LogOut User in All devices"));
+});

@@ -9,6 +9,7 @@ import { welcomeTemplate } from "../templates/welcome.templete.js";
 import { loginAlertTemplate } from "../templates/loginAlert.template.js";
 
 import { deadLetterQueue } from "../queues/deadLetter.queue.js";
+import { otpEmailTemplate } from "../templates/otpEmail.template.js";
 
 console.log("👷 Worker started...");
 
@@ -28,6 +29,7 @@ const worker = new Worker(
             ip,
             location,
             email,
+            otp
         } = job.data;
         console.log(job.data, "JOB DATA")
 
@@ -62,6 +64,22 @@ const worker = new Worker(
                     });
                 } catch (error) {
                     console.error("Login email failed:", error);
+                    throw error;
+                }
+                break;
+
+            case EMAIL_TYPES.OTP_EMAIL:
+                try {
+                    await sendEmail({
+                        to,
+                        subject: "Send OTP On Email",
+                        html: otpEmailTemplate({
+                            username,
+                            otp
+                        })
+                    });
+                } catch (error) {
+                    console.error("OTP email failed:", error);
                     throw error;
                 }
                 break;

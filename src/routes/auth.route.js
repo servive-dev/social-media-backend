@@ -1,38 +1,54 @@
-import {  Router } from "express";
-import { registerUser, loginUser, logOutUser, logOutAll } from "../controllers/auth.controller.js";
+import { Router } from "express";
+import {
+    registerUser,
+    loginUser,
+    logOutUser,
+    logOutAll,
+    verifyOtp,
+    resendOtp,
+} from "../controllers/auth.controller.js";
 import { validate } from "../middleware/validate.middleware.js";
-import { registerSchema, loginSchema, logoutSchema } from "../validator/auth.validation.js";
-import { authRateLimiter } from "../middleware/rateLimit.middlware.js";
+import {
+    registerSchema,
+    loginSchema,
+    logoutSchema,
+} from "../validator/auth.validation.js";
+import {
+    registerLimiter,
+    verifyOtpLimiter,
+    resendOtpLimiter,
+    loginLimiter,
+    logOutLimiter,
+} from "../middleware/rateLimit.middlware.js";
 import { verifyJWT } from "../middleware/jwtVerify.middleware.js";
 
 const router = Router();
 
-// Route for user registration
-router.route("/register").post(
-   authRateLimiter,
-   validate(registerSchema),
-   registerUser
-);
+// REGISTER ROUTE
+router
+    .route("/register")
+    .post(registerLimiter, validate(registerSchema), registerUser);
 
-router.route("/login").post(
-   authRateLimiter,
-   validate(loginSchema),
-   loginUser
-);
+// OTP ROUTES
+router
+    .route("/verify-otp")
+    .post(verifyOtpLimiter, verifyOtp);
 
-router.route("/logout").post(
-   verifyJWT,
-   authRateLimiter,
-   // validate(logoutSchema),
-   logOutUser
-);
+router
+    .route("/resend-otp")
+    .post(resendOtpLimiter, resendOtp);
 
+// LOGIN ROUTE
+router
+    .route("/login")
+    .post(loginLimiter, validate(loginSchema), loginUser);
 
-router.route("/logout/all-devices").post(
-   verifyJWT,
-   authRateLimiter,
-   // validate(logoutSchema),
-   logOutAll
-);
+// LOGOUT ROUTES
+router
+    .route("/logout")
+    .post(verifyJWT, logOutLimiter, validate(logoutSchema), logOutUser);
+router
+    .route("/logout/all-devices")
+    .post(verifyJWT, logOutLimiter, validate(logoutSchema), logOutAll);
 
 export default router;

@@ -1,16 +1,47 @@
 import rateLimit from "express-rate-limit";
 import { RATE_LIMIT } from "../constants/rateLimit.constant.js";
 
-// Rate limiting middleware to prevent abuse and protect against brute-force attacks
-export const authRateLimiter = rateLimit({
-   
-  windowMs: RATE_LIMIT.AUTH.WINDOW_MS,
+// REGISTER LIMITER
+export const registerLimiter = rateLimit({
+    windowMs: RATE_LIMIT.REGISTER.WINDOW_MS,
+    max: RATE_LIMIT.REGISTER.MAX,
+    message: RATE_LIMIT.REGISTER.MESSAGE,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
-  max: RATE_LIMIT.AUTH.MAX,
+// LOGIN LIMITER
+export const loginLimiter = rateLimit({
+    windowMs: RATE_LIMIT.LOGIN.WINDOW_MS,
+    max: RATE_LIMIT.LOGIN.MAX,
+    message: RATE_LIMIT.LOGIN.MESSAGE,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
-  message: RATE_LIMIT.AUTH.MESSAGE,
+// LOGOUT LIMITER
+export const logOutLimiter = rateLimit({
+    windowMs: RATE_LIMIT.LOGOUT.WINDOW_MS,
+    max: RATE_LIMIT.LOGOUT.MAX,
+    message: RATE_LIMIT.LOGOUT.MESSAGE,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
-  standardHeaders: true,
+// VERIFY OTP limiter (strict - brute force protection)
+export const verifyOtpLimiter = rateLimit({
+    windowMs: RATE_LIMIT.VERIFY_OTP.WINDOW_MS,
+    max: RATE_LIMIT.VERIFY_OTP.MAX,
+    message: RATE_LIMIT.VERIFY_OTP.MESSAGE,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
-  legacyHeaders: false,
+// RESEND OTP limiter (very strict)
+export const resendOtpLimiter = rateLimit({
+    windowMs: RATE_LIMIT.RESEND_OTP.WINDOW_MS,
+    max: RATE_LIMIT.RESEND_OTP.MAX,
+    message: RATE_LIMIT.RESEND_OTP.MESSAGE,
+    standardHeaders: true,
+    legacyHeaders: false,
 });

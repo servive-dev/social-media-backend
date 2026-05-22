@@ -95,8 +95,8 @@ const userSchema = new mongoose.Schema(
 
         status: {
             type: String,
-            enum: ["active", "banned", "deleted"],
-            default: "active",
+            enum: ["active", "banned", "deleted", "inactive"],
+            default: "inactive",
         },
 
         // ================== Activity Tracking ==================

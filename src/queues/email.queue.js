@@ -29,12 +29,13 @@ const emailQueue = new Queue(QUEUE_NAMES.EMAIL, {
 });
 
 export const addEmailJob = async (data) => {
+   console.log("DATA : ", data)
    try {
       await emailQueue.add(
          JOBS_NAMES.SEND_EMAIL,
          data,
          {
-            jobId: `${data.type}-${data.to}-${data.username || "na"}`,
+            jobId: `${data.type}-${data.to}-${data?.username || "username"}`,
          }
       );
    } catch (err) {
