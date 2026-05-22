@@ -10,6 +10,8 @@ export const verifyJWT = (req, res, next) => {
             req.cookies?.accessToken ||
             req.header("Authorization")?.replace("Bearer ", "");
 
+        console.log("TOKEN", token )
+        
         if (!token) {
             throw new ApiError(401, "Unauthorized request");
         }
@@ -17,12 +19,12 @@ export const verifyJWT = (req, res, next) => {
         // 2. Verify token
         const decoded = jwt.verify(
             token,
-            process.env.ACCESS_TOKEN_SECRET
+            process.env.ACCESS_TOKEN_SECRET_KEY
         );
 
         // 3. Attach user to request
         req.user = decoded;
-
+        console.log("DECODED TOKEN IN REQUEST.BODY" ,req.user)
         next();
 
     } catch (error) {
