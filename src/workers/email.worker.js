@@ -31,6 +31,12 @@ const worker = new Worker(
             email,
             otp
         } = job.data;
+
+        // 🔥 VALIDATION (IMPORTANT)
+        if (!to || typeof to !== "string") {
+            throw new Error(`Invalid email recipient: ${to}`);
+        }
+
         console.log(job.data, "JOB DATA")
 
         switch (type) {
@@ -88,12 +94,13 @@ const worker = new Worker(
                 console.log("Unknown email type");
         }
 
+        console.log("✅ EMAIL SENT SUCCESSFULLY:", job.id);
         return true;
     },
 
     {
         connection: bullMQConnection,
-        concurrency: 3,
+        concurrency: 1,
     }
 );
 

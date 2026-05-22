@@ -21,8 +21,8 @@ const sessionSchema = new mongoose.Schema(
  
     deviceType: {
       type: String,
-      enum: ["web", "mobile", "tablet", "desktop", "unknown", "api-client"],
-      default: "mobile",
+      enum: ["Desktop", "Mobile", "Tablet", "API Client", "Unknown"],
+      default: "Mobile",
     },
 
     ip: {

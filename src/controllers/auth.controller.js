@@ -21,10 +21,10 @@ export const registerUser = asyncHandler(async (req, res) => {
         phone: phone || undefined,
         dob,
         password,
-        active: false,
+        status: "inactive"
     });
 
-    const { _id, username, email, active } = createdUser;
+    const { _id, username, email, status } = createdUser;
 
     // otp created 
     await createOTP({
@@ -40,7 +40,7 @@ export const registerUser = asyncHandler(async (req, res) => {
                 userId: _id,
                 username,
                 email,
-                active,
+                status,
             },
             "OTP send successfully"
         )
@@ -83,11 +83,11 @@ export const verifyOtp = asyncHandler(async (req, res) => {
     // 4. OTP is correct → activate user
     const user = await User.findByIdAndUpdate(
         userId,
-        { active: true },
+        { status: "active" },
         { new: true }
     );
 
-    console.log("user is active now :", user.active)
+    console.log("user is active now :", user.status)
 
     if (!user) {
         throw new ApiError(404, "User not found");
