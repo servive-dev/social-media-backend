@@ -29,7 +29,8 @@ const worker = new Worker(
             ip,
             location,
             email,
-            otp
+            otp,
+            ...fields
         } = job.data;
 
         // 🔥 VALIDATION (IMPORTANT)
@@ -37,14 +38,14 @@ const worker = new Worker(
             throw new Error(`Invalid email recipient: ${to}`);
         }
 
-        console.log(job.data, "JOB DATA")
+        console.log(job.data, "JOB DATA");
 
         switch (type) {
             case EMAIL_TYPES.WELCOME:
                 try {
                     await sendEmail({
                         to,
-                        subject: "Welcome 🚀",
+                        subject: "Welcome to Instagram🚀",
                         html: welcomeTemplate({ username }),
                     });
                 } catch (error) {
@@ -66,6 +67,7 @@ const worker = new Worker(
                             loginMethod,
                             location,
                             ip,
+                            ...fields,
                         }),
                     });
                 } catch (error) {
@@ -81,8 +83,8 @@ const worker = new Worker(
                         subject: "Send OTP On Email",
                         html: otpEmailTemplate({
                             username,
-                            otp
-                        })
+                            otp,
+                        }),
                     });
                 } catch (error) {
                     console.error("OTP email failed:", error);

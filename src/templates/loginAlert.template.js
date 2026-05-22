@@ -7,6 +7,7 @@ export const loginAlertTemplate = ({
     loginMethod,
     location,
     ip,
+    ...fields
 }) => {
     return `
     <div style="

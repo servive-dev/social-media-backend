@@ -1,49 +1,65 @@
 import { Session } from "../model/session.model.js";
-import { getDeviceInfo } from "./getDeviceInfo.js";
+import { getLoginMeta } from "../utils/loginMeta.util.js";
 
 export const createSession = async ({
     userId,
     refreshToken,
     req,
-    loginMethod = "email",
+    loginMethod = "username_password",
 }) => {
+    try {
+        const meta = getLoginMeta(req) || {};
 
-    const device = getDeviceInfo(req.headers["user-agent"]);
+        // SAFE NORMALIZATION
+        const deviceType = ["desktop", "mobile", "tablet"].includes(
+            meta.deviceType
+        )
+            ? meta.deviceType
+            : "unknown";
 
-    const ip =
-        req.headers["x-forwarded-for"]?.split(",")[0] ||
-        req.socket?.remoteAddress ||
-        "unknown";
+        const deviceInfo =
+            typeof meta.deviceInfo === "string"
+                ? meta.deviceInfo
+                : "unknown_device";
 
-    // 🧠 1. check if session already exists for same device
-    const existingSession = await Session.findOne({
-        userId,
-        deviceType: device.deviceType,
-        ip,
-    });
+        const ip = meta.ip || "unknown";
+        const location = meta.location || "unknown";
 
-    // 🧠 2. if exists → update instead of create
-    if (existingSession) {
-        existingSession.refreshToken = refreshToken;
-        existingSession.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        await existingSession.save();
-        return existingSession;
+        // CHECK EXISTING SESSION
+        const existingSession = await Session.findOne({
+            userId,
+            deviceInfo,
+        });
+
+        if (existingSession) {
+            existingSession.refreshToken = refreshToken;
+            existingSession.ip = ip;
+            existingSession.location = location;
+            existingSession.lastActiveAt = new Date();
+            existingSession.expiresAt = new Date(
+                Date.now() + 15 * 24 * 60 * 60 * 1000
+            );
+
+            await existingSession.save();
+            return existingSession;
+        }
+
+        // CREATE NEW SESSION
+        const session = await Session.create({
+            userId,
+            refreshToken,
+            deviceInfo,
+            deviceType,
+            ip,
+            location,
+            loginMethod,
+            lastActiveAt: new Date(),
+            expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+        });
+
+        return session;
+    } catch (err) {
+        console.error("SESSION ERROR:", err);
+        throw err;
     }
-
-    // 🆕 3. create new session
-    const session = await Session.create({
-        userId,
-        refreshToken,
-
-        deviceInfo: device.deviceInfo,
-        deviceType: device.deviceType,
-
-        ip,
-        location: "unknown",
-        loginMethod,
-
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-
-    return session;
 };

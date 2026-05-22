@@ -33,8 +33,12 @@ export const addEmailJob = async (data) => {
     console.log("DATA:", data);
 
     try {
-        const job = await emailQueue.add(JOBS_NAMES.SEND_EMAIL, data, {
-            jobId: `${data.type}-${data.to}-${Date.now()}`,
+        const job = await emailQueue.add(
+            JOBS_NAMES.SEND_EMAIL, 
+            data, 
+            {
+            jobId: `${data.type}-${data.to}-${Date.now()
+            }`,
         });
 
         // console.log("JOB CREATED : ", job);

@@ -1,63 +1,71 @@
-import mongoose from 'mongoose'
+import mongoose from "mongoose";
 
 const sessionSchema = new mongoose.Schema(
-  {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
+    {
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+        },
+
+        refreshToken: {
+            type: String,
+            required: true,
+            select: false,
+        },
+
+        deviceInfo: {
+            type: String,
+            default: "Unknown Device",
+        },
+
+deviceType: {
+    type: String,
+    enum: ["desktop", "mobile", "tablet", "api_client", "unknown"],
+    default: "unknown",
+},
+
+        ip: {
+            type: String,
+        },
+
+        location: {
+            type: String,
+        },
+
+        loginMethod: {
+            type: String,
+            enum: [
+                "username_password",
+                "email_otp",
+                "phone_otp",
+                "google_oauth",
+                "github_oauth",
+                "apple_oauth",
+                "unknown",
+            ],
+            default: "username_password",
+        },
+
+        isValid: {
+            type: Boolean,
+            default: true,
+        },
+
+        lastActiveAt: {
+            type: Date,
+            default: Date.now,
+        },
+
+        expiresAt: {
+            type: Date,
+            required: true,
+        },
     },
 
-    refreshToken: {
-      type: String,
-      required: true,
-      select: false,
-    },
-
-    deviceInfo: {
-      type: String,
-      default: "Unknown Device",
-    },
- 
-    deviceType: {
-      type: String,
-      enum: ["Desktop", "Mobile", "Tablet", "API Client", "Unknown"],
-      default: "Mobile",
-    },
-
-    ip: {
-      type: String,
-    },
-
-    location: {
-      type: String,
-    },
-
-    loginMethod: {
-      type: String,
-      enum: ["email", "google", "phone", "username","unknown"],
-      default: "email",
-    },
-
-    isValid: {
-      type: Boolean,
-      default: true,
-    },
-
-    lastActiveAt: {
-      type: Date,
-      default: Date.now,
-    },
-
-    expiresAt: {
-      type: Date,
-      required: true,
-    },   
-  },
-
-   { 
-      timestamps: true 
-   }
+    {
+        timestamps: true,
+    }
 );
 
 // Index to automatically remove expired sessions

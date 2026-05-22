@@ -6,13 +6,20 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { EMAIL_TYPES } from "../constants/email.constant.js";
 import { addEmailJob } from "../queues/email.queue.js";
 import { createSession } from "../utils/createSession.js";
-import { getDeviceInfo } from "../utils/getDeviceInfo.js";
-import { createOTP } from "../services/otp.service.js"
+import { createOTP } from "../services/otp.service.js";
 import redisClient from "../config/redis.config.js";
+import { getLoginMeta } from "../utils/loginMeta.util.js";
 
 // Controller for register user
 export const registerUser = asyncHandler(async (req, res) => {
-    const { username: uname, fullName, email: mail, phone, dob, password } = req.body;
+    const {
+        username: uname,
+        fullName,
+        email: mail,
+        phone,
+        dob,
+        password,
+    } = req.body;
 
     const createdUser = await User.create({
         username: uname,
@@ -21,12 +28,12 @@ export const registerUser = asyncHandler(async (req, res) => {
         phone: phone || undefined,
         dob,
         password,
-        status: "inactive"
+        status: "inactive",
     });
 
     const { _id, username, email, status } = createdUser;
 
-    // otp created 
+    // otp created
     await createOTP({
         userId: _id,
         email,
@@ -87,7 +94,7 @@ export const verifyOtp = asyncHandler(async (req, res) => {
         { new: true }
     );
 
-    console.log("user is active now :", user.status)
+    console.log("user is active now :", user.status);
 
     if (!user) {
         throw new ApiError(404, "User not found");
@@ -204,39 +211,20 @@ export const loginUser = asyncHandler(async (req, res) => {
         req,
     });
 
-    // DEVICE INFO (for email queue)
-    const userAgent = req.headers["user-agent"];
+    // LOGIN META
+    const loginMeta = getLoginMeta(req);
 
-    const deviceData = userAgent
-        ? getDeviceInfo(userAgent)
-        : {
-              name: "unknown",
-              version: "unknown",
-              os: "unknown",
-              device: "unknown",
-          };
-
-    console.log("DEVICE DATA : ", req.headers["user-agent"]);
-
-    const ip =
-        req.headers["x-forwarded-for"]?.split(",")[0] ||
-        req.socket?.remoteAddress ||
-        "unknown";
-
-    const location = "unknown";
-
-    // EMAIL QUEUE
-    addEmailJob({
+    // LOGIN ALERT EMAIL QUEUE
+    await addEmailJob({
         type: EMAIL_TYPES.LOGIN_ALERT,
-        to: user.email,
-        username: user.username,
 
-        deviceInfo: deviceData.deviceInfo,
-        deviceType: deviceData.deviceType,
-        ip,
-        location,
-        loginMethod: req.username || req.email,
-    }).catch(console.error);
+        to: user.email,
+
+        username: user.username,
+        email: user.email,
+
+        ...loginMeta,
+    });
 
     // set secure cookies
     res.cookie("accessToken", accessToken, {

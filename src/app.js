@@ -11,6 +11,8 @@ import { notFound } from './middleware/notFound.middleware.js';
 const app = express();
 
 // Middleware
+app.set("trust proxy", 1);
+
 // Enable CORS for all routes
 app.use(cors());
 
