@@ -3,12 +3,14 @@ import { Session } from "../model/session.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { EMAIL_TYPES } from "../constants/email.constant.js";
+import { EMAIL_TYPES, OTP_TYPES } from "../constants/email.constant.js";
 import { addEmailJob } from "../queues/email.queue.js";
 import { createSession } from "../utils/createSession.js";
 import { createOTP } from "../services/otp.service.js";
 import redisClient from "../config/redis.config.js";
 import { getLoginMeta } from "../utils/loginMeta.util.js";
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 // Controller for register user
 export const registerUser = asyncHandler(async (req, res) => {
@@ -24,7 +26,7 @@ export const registerUser = asyncHandler(async (req, res) => {
     const createdUser = await User.create({
         username: uname,
         fullName,
-        email: mail,
+        email: mail ,
         phone: phone || undefined,
         dob,
         password,
@@ -35,9 +37,11 @@ export const registerUser = asyncHandler(async (req, res) => {
 
     // otp created
     await createOTP({
+        type: EMAIL_TYPES.REGISTER,
         userId: _id,
         email,
         username,
+        purpose: EMAIL_TYPES.REGISTER
     });
 
     return res.status(201).json(
@@ -54,119 +58,110 @@ export const registerUser = asyncHandler(async (req, res) => {
     );
 });
 
-// verify otp
+// Controller for verify otp
 export const verifyOtp = asyncHandler(async (req, res) => {
-    const { userId, otp } = req.body;
+    const { userId, otp, type } = req.body;
 
-    if (!userId || !otp) {
-        throw new ApiError(400, "UserId and OTP are required");
-    }
+    const otpKey = `otp:${type}:${userId}`;
+    const attemptKey = `otp:attempts:${type}:${userId}`;
+    console.log("attemptKey : ", attemptKey)
 
-    // 1. get OTP from Redis
-    const storedOtp = await redisClient.get(`otp:${userId}`);
+    const storedOtp = await redisClient.get(otpKey);
+    console.log("storedOtp : ", storedOtp)
 
     if (!storedOtp) {
         throw new ApiError(400, "OTP expired or not found");
     }
 
-    // 2. OPTIONAL: attempt tracking (anti brute force)
-    const attemptKey = `otp:attempts:${userId}`;
     const attempts = await redisClient.get(attemptKey);
 
     if (attempts && parseInt(attempts) >= 5) {
-        await redisClient.del(`otp:${userId}`);
-        throw new ApiError(429, "Too many attempts. OTP blocked.");
+        await redisClient.del(otpKey);
+        throw new ApiError(429, "Too many attempts");
     }
 
-    // 3. check OTP match
-    if (storedOtp !== otp) {
-        // increase attempts
+    if (String(storedOtp) !== String(otp)) {
         await redisClient.incr(attemptKey);
-        await redisClient.expire(attemptKey, 300); // reset in 5 min
+
+        const ttl = await redisClient.ttl(attemptKey);
+        if (ttl === -1) {
+            await redisClient.expire(attemptKey, 300);
+        }
 
         throw new ApiError(400, "Invalid OTP");
     }
 
-    // 4. OTP is correct → activate user
-    const user = await User.findByIdAndUpdate(
-        userId,
-        { status: "active" },
-        { new: true }
-    );
-
-    console.log("user is active now :", user.status);
-
-    if (!user) {
-        throw new ApiError(404, "User not found");
-    }
-
-    // 5. cleanup Redis
-    await redisClient.del(`otp:${userId}`);
+    // cleanup
     await redisClient.del(attemptKey);
+    await redisClient.del(otpKey);
 
-    // 6. send welcome email (async, non-blocking)
-    addEmailJob({
-        type: EMAIL_TYPES.WELCOME,
-        to: user.email,
-        username: user.username,
-    }).catch((err) => {
-        console.error("WELCOME EMAIL FAILED:", err);
-    });
+    const user = await User.findById(userId);
+    if (user) {
+        if (type === OTP_TYPES.REGISTER) {
+            user.status = "active";
+            await user.save();
 
-    // 7. response
-    return res.status(200).json({
-        success: true,
-        message: "OTP verified successfully",
-        user: {
-            id: user._id,
-            username: user.username,
-            email: user.email,
-            active: user.active,
-        },
-    });
+            return res.status(200).json({
+                success: true,
+                message: "Account verified successfully",
+            });
+        } else if (type === OTP_TYPES.FORGET_PASSWORD) {
+            const resetToken = crypto.randomBytes(32).toString("hex");
+
+            await redisClient.setEx(
+                `reset:${resetToken}`,
+                600, // 10 min
+                userId
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: "OTP verified",
+                resetToken,
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid OTP type",
+            });
+        }
+    }
 });
 
-// Resend OTP
+// Controller for resed otp
 export const resendOtp = asyncHandler(async (req, res) => {
-    const { userId } = req.body;
+    const { userId, type } = req.body;
 
-    if (!userId) {
-        throw new ApiError(400, "UserId is required");
+    if (!userId || !type) {
+        throw new ApiError(400, "userId and type are required");
     }
 
-    // 1. cooldown check (60 sec rule)
-    const cooldownKey = `otp:cooldown:${userId}`;
+    const cooldownKey = `otp:cooldown:${type}:${userId}`;
 
     const isBlocked = await redisClient.get(cooldownKey);
 
     if (isBlocked) {
-        throw new ApiError(
-            429,
-            "Please wait 60 seconds before requesting new OTP"
-        );
+        throw new ApiError(429, "Please wait before requesting new OTP");
     }
 
-    // 2. find user
     const user = await User.findById(userId);
 
     if (!user) {
         throw new ApiError(404, "User not found");
     }
 
-    // 3. OPTIONAL: delete old OTP before generating new one
-    await redisClient.del(`otp:${userId}`);
+    const otpKey = `otp:${type}:${userId}`;
+    await redisClient.del(otpKey);
 
-    // 4. generate new OTP + send email (IMPORTANT)
     await createOTP({
         userId: user._id,
         email: user.email,
+        phone: user.phone,
         username: user.username,
+        type,
     });
 
-    // 5. set cooldown (60 seconds)
-    await redisClient.set(cooldownKey, "1", {
-        EX: 60,
-    });
+    await redisClient.set(cooldownKey, "1", { EX: 60 });
 
     return res.status(200).json({
         success: true,
@@ -217,9 +212,7 @@ export const loginUser = asyncHandler(async (req, res) => {
     // LOGIN ALERT EMAIL QUEUE
     await addEmailJob({
         type: EMAIL_TYPES.LOGIN_ALERT,
-
         to: user.email,
-
         username: user.username,
         email: user.email,
 
@@ -352,4 +345,181 @@ export const logOutAll = asyncHandler(async (req, res) => {
     return res
         .status(200)
         .json(new ApiResponse(200, {}, "LogOut User in All devices"));
+});
+
+// renew refresh token
+export const renewToken = asyncHandler(async (req, res) => {
+    const incomingRefreshToken = req.cookies?.refreshToken;
+    console.log("INCOMING REFRESH TOKEN", incomingRefreshToken);
+
+    if (!incomingRefreshToken) {
+        throw new ApiError(401, "Refresh token missing");
+    }
+
+    let decoded;
+
+    try {
+        decoded = jwt.verify(
+            incomingRefreshToken,
+            process.env.REFRESH_TOKEN_SECRET_KEY
+        );
+
+        console.log("DECODED", decoded);
+    } catch (error) {
+        console.log("JWT ERROR NAME:", error.name);
+        console.log("JWT ERROR MESSAGE:", error.message);
+
+        throw new ApiError(401, "Invalid refresh token");
+    }
+
+    const session = await Session.findOne({
+        userId: decoded.id,
+        refreshToken: incomingRefreshToken,
+    });
+
+    if (!session) {
+        throw new ApiError(401, "Session expired or invalid");
+    }
+
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+        throw new ApiError(401, "User not found");
+    }
+
+    const newAccessToken = user.generateAccessToken();
+    const newRefreshToken = user.generateRefreshToken();
+
+    // ROTATE SESSION
+    session.refreshToken = newRefreshToken;
+    await session.save();
+
+    res.cookie("accessToken", newAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie("refreshToken", newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 15 * 24 * 60 * 60 * 1000,
+    });
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                { userId: user._id },
+                "Tokens refreshed successfully"
+            )
+        );
+});
+
+// Get ME
+export const getMe = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    console.log("USER ID", userId);
+
+    const user = await User.findById(userId);
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    return res.status(200).json(new ApiResponse(200, user, "Get Me"));
+});
+
+// forget password
+export const ForgetPassword = asyncHandler(async (req, res) => {
+    const { email, phone } = req.body;
+
+    const user = await User.findOne({
+        $or: [{ email }, { phone }],
+    });
+
+    // always same response (security)
+    if (!user) {
+        return res.status(200).json({
+            success: true,
+            message: "If account exists, OTP has been sent",
+        });
+    }
+
+    await createOTP({
+        email: user?.email,
+        type: OTP_TYPES.FORGET_PASSWORD,
+        purpose: OTP_TYPES.FORGET_PASSWORD,
+        phone: user?.phone,
+        userId: user._id,
+        username: user.username,
+    });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "If account exists, OTP has been sent"));
+});
+
+// reset Password
+export const resetPassword = asyncHandler(async (req, res) => {
+    const { resetToken, newPassword } = req.body;
+
+    const userId = await redisClient.get(`reset:${resetToken}`);
+
+    if (!userId) {
+        throw new ApiError(400, "Invalid or expired reset token");
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new ApiError(400, "User not found");
+    }
+
+    // newPassword save in db
+    user.password = newPassword;
+    await user.save();
+
+    // delete the token from redis (one time use)
+    await redisClient.del(`reset:${resetToken}`);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, "Password reset successfully"));
+});
+
+// change Password
+export const changePassword = asyncHandler(async (req, res) => {
+   const { newPassword, confirmPassword } = req.body;
+   const userId = req.user?.id;
+   const user = await User.findById(userId);
+
+   if (!user) {
+      throw new ApiError(404, "User not found");
+   }
+
+   // 2. PASSWORD update
+   user.password = newPassword;
+   await user.save();
+
+   // 3. SEND EMAIL (NON-BLOCKING)
+   addEmailJob({
+      type: EMAIL_TYPES.PASSWORD_CHANGED,
+      to: user.email,
+      username: user.username,
+      time: new Date().toLocaleString(),
+      ip: req.ip,
+      device: req.headers["user-agent"]
+   }).catch(console.error);
+
+   // 4. RESPONSE
+   return res.status(200).json(
+      new ApiResponse(
+         200,
+         null,
+         "Password changed successfully"
+      )
+   );
 });

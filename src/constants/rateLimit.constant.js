@@ -24,14 +24,41 @@ export const RATE_LIMIT = {
     WINDOW_MS: 5 * 60 * 1000,
     MAX: 5,
     MESSAGE:
-      "Too many OTP requests, try again later.",
+      "Too many OTP verification attempts. Try again later.",
   },
 
   RESEND_OTP: {
     WINDOW_MS: 60 * 1000,
     MAX: 2,
     MESSAGE:
-      "Please wait before requesting another OTP",
+      "Too many OTP resend requests. Try again later.",
+  },
+
+  RENEW_TOKEN: {
+    WINDOW_MS: 60 * 1000,
+    MAX: 2,
+    MESSAGE:
+      "Too many token renewal attempts",
+  },
+
+  FORGET_PASSWORD: {
+    WINDOW_MS: 60 * 1000,
+    MAX: 2,
+    MESSAGE:
+      "Too many password reset attempts. Try again later.",
+  },
+
+  RESET_PASSWORD: {
+    WINDOW_MS: 60 * 1000,
+    MAX: 2,
+    MESSAGE:
+      "Too many reset attempts. Try again later.",
+  },
+  PASSWORD_CHANGED: {
+    WINDOW_MS: 60 * 1000,
+    MAX: 2,
+    MESSAGE:
+      "Too many reset attempts. Try again later.",
   },
 
   COMMENT: {

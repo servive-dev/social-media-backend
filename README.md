@@ -120,7 +120,7 @@ This project supports:
 
 # ✨ Features 
 
- ## 🔐 Authentication ❌
+ ## 🔐 Authentication ✅
    - User Registration 
    - User Login
    - JWT Authentication
@@ -270,5 +270,139 @@ Workers
 MongoDB + Email + Notifications
    ↓
 User sees updates
+
+```
+
+# API'S
+```
+## AUTH ✅
+POST    /api/v1/auth/register
+POST    /api/v1/auth/verify-otp
+POST    /api/v1/auth/resend-otp
+POST    /api/v1/auth/login
+POST    /api/v1/auth/refresh
+POST    /api/v1/auth/logout
+POST    /api/v1/auth/logout-all
+POST    /api/v1/auth/forgot-password
+POST    /api/v1/auth/reset-password
+PATCH   /api/v1/auth/change-password
+GET     /api/v1/auth/me
+
+## USER 
+GET     /api/v1/users/:username
+PATCH   /api/v1/users/profile
+PATCH   /api/v1/users/avatar
+PATCH   /api/v1/users/cover-photo
+DELETE  /api/v1/users/avatar
+GET     /api/v1/users/suggestions
+GET     /api/v1/users/search?q=
+GET     /api/v1/users/:id/followers
+GET     /api/v1/users/:id/following
+POST    /api/v1/users/:id/follow
+DELETE  /api/v1/users/:id/follow
+POST    /api/v1/users/block/:id
+DELETE  /api/v1/users/block/:id
+POST    /api/v1/users/mute/:id
+DELETE  /api/v1/users/mute/:id
+
+## POST 
+POST    /api/v1/posts
+GET     /api/v1/posts/feed
+GET     /api/v1/posts/explore
+GET     /api/v1/posts/:id
+PATCH   /api/v1/posts/:id
+DELETE  /api/v1/posts/:id
+POST    /api/v1/posts/:id/like
+DELETE  /api/v1/posts/:id/like
+POST    /api/v1/posts/:id/save
+DELETE  /api/v1/posts/:id/save
+GET     /api/v1/posts/user/:userId
+
+## COMMENT 
+POST    /api/v1/comments/:postId
+GET     /api/v1/comments/:postId
+PATCH   /api/v1/comments/:commentId
+DELETE  /api/v1/comments/:commentId
+POST    /api/v1/comments/:commentId/like
+DELETE  /api/v1/comments/:commentId/like
+POST    /api/v1/comments/:commentId/reply
+
+## REELS
+POST    /api/v1/reels
+GET     /api/v1/reels/feed
+GET     /api/v1/reels/:id
+DELETE  /api/v1/reels/:id
+POST    /api/v1/reels/:id/like
+POST    /api/v1/reels/:id/comment
+POST    /api/v1/reels/:id/share
+
+## STORIES
+POST    /api/v1/stories
+GET     /api/v1/stories/feed
+GET     /api/v1/stories/:userId
+DELETE  /api/v1/stories/:storyId
+POST    /api/v1/stories/:storyId/view
+POST    /api/v1/stories/:storyId/like
+
+## CHATS
+GET     /api/v1/chats
+POST    /api/v1/chats
+GET     /api/v1/chats/:chatId
+DELETE  /api/v1/chats/:chatId
+POST    /api/v1/messages
+GET     /api/v1/messages/:chatId
+DELETE  /api/v1/messages/:messageId
+POST    /api/v1/messages/:messageId/react
+POST    /api/v1/messages/:messageId/seen
+
+## NOTIFICATION 
+GET     /api/v1/notifications
+PATCH   /api/v1/notifications/read/:id
+PATCH   /api/v1/notifications/read-all
+DELETE  /api/v1/notifications/:id
+
+## SEARCH 
+GET     /api/v1/search/users?q=
+GET     /api/v1/search/posts?q=
+GET     /api/v1/search/reels?q=
+GET     /api/v1/search/hashtags?q=
+
+## SESSION
+GET     /api/v1/sessions
+DELETE  /api/v1/sessions/:sessionId
+DELETE  /api/v1/sessions
+
+## SECURTIY 2FA
+GET     /api/v1/security/login-activity
+POST    /api/v1/security/2fa/enable
+POST    /api/v1/security/2fa/verify
+POST    /api/v1/security/2fa/disable
+
+## SETTING 
+GET     /api/v1/settings/privacy
+PATCH   /api/v1/settings/privacy
+PATCH   /api/v1/settings/account
+PATCH   /api/v1/settings/notifications
+
+## REPORT 
+POST    /api/v1/reports/user/:id
+POST    /api/v1/reports/post/:id
+POST    /api/v1/reports/comment/:id
+
+## FILES
+POST    /api/v1/uploads/image
+POST    /api/v1/uploads/video
+DELETE  /api/v1/uploads/:id
+
+## ADMIN
+GET     /api/v1/admin/users
+DELETE  /api/v1/admin/users/:id
+GET     /api/v1/admin/reports
+DELETE  /api/v1/admin/posts/:id
+GET     /api/v1/admin/statistics
+
+## HASHTAG 
+GET     /api/v1/hashtags/:tag
+GET     /api/v1/hashtags/trending
 
 ```

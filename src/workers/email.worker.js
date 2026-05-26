@@ -30,6 +30,7 @@ const worker = new Worker(
             location,
             email,
             otp,
+            purpose,
             ...fields
         } = job.data;
 
@@ -67,11 +68,30 @@ const worker = new Worker(
                             loginMethod,
                             location,
                             ip,
+                            time,
+                            device,
                             ...fields,
                         }),
                     });
                 } catch (error) {
                     console.error("Login email failed:", error);
+                    throw error;
+                }
+                break;
+            case EMAIL_TYPES.PASSWORD_CHANGED:
+                try {
+                    await sendEmail({
+                        to,
+                        subject: "Password changed Successfully",
+                        html: passwordChangedTemplate({
+                            username,
+                            time,
+                            ip,
+                            device
+                        }),
+                    });
+                } catch (error) {
+                    console.error("Password change failed:", error);
                     throw error;
                 }
                 break;
@@ -84,6 +104,7 @@ const worker = new Worker(
                         html: otpEmailTemplate({
                             username,
                             otp,
+                            purpose
                         }),
                     });
                 } catch (error) {
@@ -91,9 +112,8 @@ const worker = new Worker(
                     throw error;
                 }
                 break;
-
             default:
-                console.log("Unknown email type");
+                throw new Error(`Unknown email type: ${type}`);
         }
 
         console.log("✅ EMAIL SENT SUCCESSFULLY:", job.id);

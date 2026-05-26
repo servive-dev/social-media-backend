@@ -45,3 +45,39 @@ export const resendOtpLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 });
+
+// RENEW RATE LIMITER 
+export const renewTokenLimiter = rateLimit({
+    windowMs: RATE_LIMIT.RENEW_TOKEN.WINDOW_MS,
+    max: RATE_LIMIT.RENEW_TOKEN.MAX,
+    message: RATE_LIMIT.RENEW_TOKEN.MESSAGE,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// FORGET PASSWORD RATE LIMITER 
+export const forgetPasswordLimiter  = rateLimit({
+    windowMs: RATE_LIMIT.FORGET_PASSWORD.WINDOW_MS,
+    max: RATE_LIMIT.FORGET_PASSWORD.MAX,
+    message: RATE_LIMIT.FORGET_PASSWORD.MESSAGE,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// FORGET PASSWORD RATE LIMITER 
+export const resetPasswordLimiter   = rateLimit({
+    windowMs: RATE_LIMIT.RENEW_TOKEN.WINDOW_MS,
+    max: RATE_LIMIT.RENEW_TOKEN.MAX,
+    message: RATE_LIMIT.RENEW_TOKEN.MESSAGE,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// PASSWORD CHANGE RATE LIMITER 
+export const passwordChangedLimiter   = rateLimit({
+    windowMs: RATE_LIMIT.PASSWORD_CHANGED.WINDOW_MS,
+    max: RATE_LIMIT.PASSWORD_CHANGED.MAX,
+    message: RATE_LIMIT.PASSWORD_CHANGED.MESSAGE,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
