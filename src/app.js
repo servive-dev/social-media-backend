@@ -48,12 +48,14 @@ app.get('/', (req, res) => {
 
 
 // routes import
-import userRoutes from './routes/auth.route.js';
+import authRoutes from './routes/auth.route.js';
+import userRoutes from './routes/user.route.js';
+
 
 
 // route declaration
-app.use('/api/v1/auth', userRoutes);
-
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', userRoutes);
 
 
 // CHECK INVALID ROUTES

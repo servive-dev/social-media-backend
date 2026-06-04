@@ -1,12 +1,12 @@
-import { User } from '../models/user.model.js';
-import { redisClient } from '../config/redis.config.js';
+import { User } from '../model/user.model.js';
+import  redisClient  from '../config/redis.config.js';
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { cacheKeys } from '../utils/cacheKey.js';
-import { getCache, setCache } from '../utils/cacheUtils.js';
+import { cacheKeys } from '../utils/cacheKeys.js';
+import { getCache, setCache } from '../services/cache.service.js';
 import { uploadToCloudinary } from '../utils/uploadToCloudinary.js';
-import { Follow } from '../models/follow.model.js';
+
 
 // TODO: GET     /api/v1/users/:username ✅
 // TODO: PATCH   /api/v1/users/profile ✅
@@ -25,6 +25,7 @@ import { Follow } from '../models/follow.model.js';
 // Get user profile
 export const getUserProfile = asyncHandler(async (req, res) => {
     const{ username } = req.params;
+    console.log("Fetching user profile for:", username);
 
     const cacheKey = cacheKeys.user(username);
 
@@ -63,24 +64,28 @@ export const getUserProfile = asyncHandler(async (req, res) => {
     );
 });
 
+
+    // FIXME: MY REQ.FILE AND USERNAME ARE NOT COMING IN UPDATE PROFILE. CHECK WHY 
+
 // Update user profile
 export const updateUserProfile = asyncHandler(async (req, res) => {
 
-    const { username } = req.params;
+    // const { username } = req.params;
+    let username = 'omyadavrs3';
     const { fullName, bio, gender, website } = req.body;
 
-    let avatarUrl;
+    // let avatarUrl;
 
-    // 1. Agar file aayi hai
-    if (req.file) {
-        const result = await uploadToCloudinary(
-            req.file.buffer,   // 👈 IMPORTANT (not path)
-            "avatars",         // folder
-            "image"            // resourceType
-        );
+    // // 1. Agar file aayi hai
+    // if (req.file) {
+    //     const result = await uploadToCloudinary(
+    //         req.file.buffer,   // 👈 IMPORTANT (not path)
+    //         "avatars",         // folder
+    //         "image"            // resourceType
+    //     );
 
-        avatarUrl = result.secure_url;
-    }
+    //     avatarUrl = result.secure_url;
+    // }
 
 
     // Validate input
@@ -88,7 +93,7 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
 
     if (fullName) updateData.fullName = fullName;
     if (bio) updateData.bio = bio;
-    if (avatar) updateData.avatar = avatar;
+    // if (avatar) updateData.avatar = avatar;
     if (gender) updateData.gender = gender;
     if (website) updateData.website = website;
 
