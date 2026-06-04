@@ -128,7 +128,7 @@ export const verifyOtp = asyncHandler(async (req, res) => {
     }
 });
 
-// Controller for resed otp
+// Controller for resend otp
 export const resendOtp = asyncHandler(async (req, res) => {
     const { userId, type } = req.body;
 

@@ -5,31 +5,43 @@ import { NOTIFICATION_TYPES } from "../constants/notification.constant.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { ApiError } from "../utils/ApiError.js"
  
-export const likePost = asyncHandler( async ( req, res) => { 
-   const userId = req.user.id;
+import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 
-   const postId = req.params.postId;
+// Upload media (image or reel)
+export const uploadMedia = async (req, res) => {
+    const { type } = req.body; 
+    // type = "image" or "reel"
 
-   const post = await Post.findById(postId);
+    if (!req.file) {
+        throw new Error("File is required");
+    }
 
-   //TODO: Post like logic
+    let resourceType = "image";
+    let folder = "images";
 
-   await sendNotification(
-      {
-         type: NOTIFICATION_TYPES.LIKE,
-         toUserId: post.owner,
-         fromUserId: userId,
-         postId,
-      }
-   )
+    if (type === "reel") {
+        resourceType = "video";
+        folder = "reels";
+    }
 
-    return res
-   .status(200)
-   .json(
-      new ApiResponse(
-         200,
-         newUser,
-         "Send Notification Successfully",
-      )
-   )
-})
+    // Upload to Cloudinary
+    const result = await uploadToCloudinary(
+        req.file.buffer,
+        folder,
+        resourceType
+    );
+
+    // Reels validation (60 sec limit)
+    if (type === "reel") {
+        if (result.duration > 60) {
+            throw new Error("Reel must be max 60 seconds");
+        }
+    }
+
+    return res.status(200).json({
+        success: true,
+        url: result.secure_url,
+        public_id: result.public_id,
+        duration: result.duration || null
+    });
+};
