@@ -16,10 +16,10 @@ import { uploadToCloudinary } from '../utils/uploadToCloudinary.js';
 // TODO: GET     /api/v1/users/search?q= ✅
 // TODO: GET     /api/v1/users/:id/followers ✅
 // TODO: GET     /api/v1/users/:id/following ✅
-// TODO: POST    /api/v1/users/:id/follow
-// TODO: DELETE  /api/v1/users/:id/follow
-// TODO: POST    /api/v1/users/block/:id
-// TODO: DELETE  /api/v1/users/block/:id
+// TODO: POST    /api/v1/users/:id/follow ✅
+// TODO: DELETE  /api/v1/users/:id/follow ✅
+// TODO: POST    /api/v1/users/block/:id ✅
+// TODO: DELETE  /api/v1/users/block/:id ✅
 
 
 // Get user profile
@@ -65,8 +65,7 @@ export const getUserProfile = asyncHandler(async (req, res) => {
 });
 
 
-    // FIXME: MY REQ.FILE AND USERNAME ARE NOT COMING IN UPDATE PROFILE. CHECK WHY 
-
+// FIXME: MY REQ.FILE AND USERNAME ARE NOT COMING IN UPDATE PROFILE. CHECK WHY 
 // Update user profile
 export const updateUserProfile = asyncHandler(async (req, res) => {
 
@@ -369,7 +368,139 @@ export const getUserFollowing = asyncHandler(async (req, res) => {
 });
 
 // Follow user
-export const followUser = asyncHandler(async (req, res) => {});
+export const followUser = asyncHandler(async (req, res) => {
+    const userId = req.user.id; // Assuming you have user ID from auth middleware
+    const { id: targetUserId } = req.params;
+
+    if (userId === targetUserId) {
+        throw new ApiError(400, 'You cannot follow yourself');
+    }
+
+    // Add target user to current user's following list
+    const user = await User.findByIdAndUpdate(
+        userId,
+        { $addToSet: { following: targetUserId } },
+        { new: true }
+    )
+
+    // Add current user to target user's followers list
+    await User.findByIdAndUpdate(
+        targetUserId,
+        { $addToSet: { followers: userId } },
+        { new: true }
+    );
+
+    // Invalidate caches for both users
+    await redisClient.del(cacheKeys.userFollowers(targetUserId));
+    await redisClient.del(cacheKeys.userFollowing(userId));
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200, 
+            user,
+            'User followed successfully'
+        )
+    );
+
+});
 
 // Unfollow user
-export const unfollowUser = asyncHandler(async (req, res) => {});
+export const unfollowUser = asyncHandler(async (req, res) => {
+    const userId = req.user.id; // Assuming you have user ID from auth middleware
+    const { id: targetUserId } = req.params;
+
+    if (userId === targetUserId) {
+        throw new ApiError(400, 'You cannot unfollow yourself');
+    }
+    // Remove target user from current user's following list
+    const user = await User.findByIdAndUpdate(
+        userId,
+        { $pull: { following: targetUserId } },
+        { new: true }
+    );
+
+    // Remove current user from target user's followers list
+    await User.findByIdAndUpdate(
+        targetUserId,
+        { $pull: { followers: userId } },
+        { new: true }
+    );
+
+    // Invalidate caches for both users
+    await redisClient.del(cacheKeys.userFollowers(targetUserId));
+    await redisClient.del(cacheKeys.userFollowing(userId));
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200, 
+            user,
+            'User unfollowed successfully'
+        )
+    );
+});
+
+// Block user
+export const blockUser = asyncHandler(async (req, res) => {
+    const userId = req.user.id; // Assuming you have user ID from auth middleware
+    const { id: targetUserId } = req.params;
+
+    if (userId === targetUserId) {
+        throw new ApiError(400, 'You cannot block yourself');
+    }
+
+    // Add target user to current user's blocked list
+    const user = await User.findByIdAndUpdate(
+        userId,
+        { $addToSet: { blocked: targetUserId } },
+        { new: true }
+    );
+
+    // Invalidate caches for both users
+    await redisClient.del(cacheKeys.userFollowers(targetUserId));
+    await redisClient.del(cacheKeys.userFollowing(userId));
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200, 
+            user,
+            'User blocked successfully'
+        )
+    );
+});
+
+// Unblock user
+export const unblockUser = asyncHandler(async (req, res) => {
+    const userId = req.user.id; // Assuming you have user ID from auth middleware
+    const { id: targetUserId } = req.params;
+
+    if (userId === targetUserId) {
+        throw new ApiError(400, 'You cannot unblock yourself');
+    }
+
+    // Remove target user from current user's blocked list
+    const user = await User.findByIdAndUpdate(
+        userId,
+        { $pull: { blocked: targetUserId } },
+        { new: true }
+    );
+
+    // Invalidate caches for both users
+    await redisClient.del(cacheKeys.userFollowers(targetUserId));
+    await redisClient.del(cacheKeys.userFollowing(userId));
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200, 
+            user,
+            'User unblocked successfully'
+        )
+    );
+});
