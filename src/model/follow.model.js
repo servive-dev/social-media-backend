@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 const followSchema = new mongoose.Schema(
   {
     follower: {
@@ -11,6 +13,10 @@ const followSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    }
   },
   { timestamps: true }
 );
