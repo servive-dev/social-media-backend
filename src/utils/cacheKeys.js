@@ -2,7 +2,7 @@
 export const cacheKeys = {
     user: (username) => `user:${username.toLowerCase()}`,
 
-    userById: (id) => `user:id:${id}`,
+    userById: (userId) => `user:id:${userId}`,
 
     post: (postId) => `post:${postId}`,
 
@@ -17,6 +17,10 @@ export const cacheKeys = {
     passwordReset: (email) => `passwordReset:${email.toLowerCase()}`,
 
     changeEmail: (email) => `changeEmail:${email.toLowerCase()}`,
+
+    userSuggestions: (keyword) => `userSuggestions:${keyword}`,
+
+    userSearch: (q) => `userSearch:${q.toLowerCase()}`,
 
     // Add more cache key generators as needed
 

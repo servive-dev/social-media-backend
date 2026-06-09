@@ -1,12 +1,11 @@
-import { User } from '../model/user.model.js';
-import  redisClient  from '../config/redis.config.js';
+import { User } from "../model/user.model.js";
+import redisClient from "../config/redis.config.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { cacheKeys } from '../utils/cacheKeys.js';
-import { getCache, setCache } from '../services/cache.service.js';
-import { uploadToCloudinary } from '../utils/uploadToCloudinary.js';
-
+import { cacheKeys } from "../utils/cacheKeys.js";
+import { getCache, setCache } from "../services/cache.service.js";
+import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 
 // TODO: GET     /api/v1/users/:username ✅
 // TODO: PATCH   /api/v1/users/profile ✅
@@ -21,56 +20,44 @@ import { uploadToCloudinary } from '../utils/uploadToCloudinary.js';
 // TODO: POST    /api/v1/users/block/:id ✅
 // TODO: DELETE  /api/v1/users/block/:id ✅
 
-
 // Get user profile
 export const getUserProfile = asyncHandler(async (req, res) => {
-    const{ username } = req.params;
+    const { username } = req.params;
     console.log("Fetching user profile for:", username);
 
     const cacheKey = cacheKeys.user(username);
 
     // Check cache first
     const catched = await getCache(cacheKey);
-
     if (catched) {
         return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200, 
-                JSON.parse(catched), 
-                'User fetched from cache'
-            )
-        );
+            .status(200)
+            .json(new ApiResponse(200, catched, "User fetched from cache"));
     }
 
     // Fetch user from database
-    const user = await User.findOne({ username }).lean();
+    const user = await User.findOne({ username })
+        .select(
+            "_id username fullName avatar bio website isVerified followersCount followingCount postsCount createdAt"
+        )
+        .lean();
     if (!user) {
-        throw new ApiError(404, 'User not found');
+        throw new ApiError(404, "User not found");
     }
 
     // Store user in cache
     await setCache(cacheKey, user, 3600); // Cache for 1 hour
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            user, 
-            'User fetched successfully'
-        )
-    );
+        .status(200)
+        .json(new ApiResponse(200, user, "User fetched successfully"));
 });
 
-
-// FIXME: MY REQ.FILE AND USERNAME ARE NOT COMING IN UPDATE PROFILE. CHECK WHY 
+// FIXME: MY REQ.FILE AND USERNAME ARE NOT COMING IN UPDATE PROFILE. CHECK WHY
 // Update user profile
 export const updateUserProfile = asyncHandler(async (req, res) => {
+    const userId = req.user.id; 
 
-    // const { username } = req.params;
-    let username = 'omyadavrs3';
     const { fullName, bio, gender, website } = req.body;
 
     // let avatarUrl;
@@ -86,7 +73,6 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     //     avatarUrl = result.secure_url;
     // }
 
-
     // Validate input
     const updateData = {};
 
@@ -97,37 +83,30 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     if (website) updateData.website = website;
 
     if (Object.keys(updateData).length === 0) {
-        throw new ApiError(400, 'No valid fields provided for update');
+        throw new ApiError(400, "No valid fields provided for update");
     }
 
     // Update user in database
-    const user = await User.findOneAndUpdate(
-        { username },
+    const user = await User.findByIdAndUpdate(
+        userId,
         { $set: updateData },
-        { new: true }
+        { returnDocument: "after" }
     ).lean();
 
-    
     if (!user) {
-        throw new ApiError(404, 'User not found');
+        throw new ApiError(404, "User not found");
     }
 
     // Invalidate cache
-    const cacheKey = cacheKeys.user(username);
+    const cacheKey = cacheKeys.userById(userId);
 
     // Remove the cached user data
     await redisClient.del(cacheKey);
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            user, 
-            'User profile updated successfully'
-        )
-    );
-});   
+        .status(200)
+        .json(new ApiResponse(200, user, "User profile updated successfully"));
+});
 
 // Update user avatar
 export const updateUserAvatar = asyncHandler(async (req, res) => {
@@ -135,25 +114,25 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
     const file = req.file;
 
     if (!file) {
-        throw new ApiError(400, 'No file uploaded');
+        throw new ApiError(400, "No file uploaded");
     }
 
     // Upload to Cloudinary
     const result = await uploadToCloudinary(
-        file.buffer,   // 👈 IMPORTANT (not path)
-        "avatars",     // folder
-        "image"        // resourceType
+        file.buffer, // 👈 IMPORTANT (not path)
+        "avatars", // folder
+        "image" // resourceType
     );
 
     // Update user avatar in database
     const user = await User.findOneAndUpdate(
         { username },
         { $set: { avatar: result.secure_url } },
-        { new: true }
+        { returnDocument: "after" }
     ).lean();
 
     if (!user) {
-        throw new ApiError(404, 'User not found');
+        throw new ApiError(404, "User not found");
     }
 
     // Invalidate cache
@@ -161,14 +140,8 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
     await redisClient.del(cacheKey);
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            user,
-            'User avatar updated successfully'
-        )
-    );
+        .status(200)
+        .json(new ApiResponse(200, user, "User avatar updated successfully"));
 });
 
 // Delete user avatar
@@ -178,11 +151,11 @@ export const deleteUserAvatar = asyncHandler(async (req, res) => {
     const user = await User.findOneAndUpdate(
         { username },
         { $set: { avatar: null } },
-        { new: true }
+        { returnDocument: "after" }
     ).lean();
 
     if (!user) {
-        throw new ApiError(404, 'User not found');
+        throw new ApiError(404, "User not found");
     }
 
     // Invalidate cache
@@ -190,58 +163,52 @@ export const deleteUserAvatar = asyncHandler(async (req, res) => {
     await redisClient.del(cacheKey);
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            user,
-            'User avatar deleted successfully'
-        )
-    );
+        .status(200)
+        .json(new ApiResponse(200, user, "User avatar deleted successfully"));
 });
 
 // Get user suggestions
 export const getUserSuggestions = asyncHandler(async (req, res) => {
     const { keyword } = req.query;
-
-    const cacheKey = cacheKeys.userSuggestions(keyword || 'default');
+    console.log("Keyword for suggestions:", keyword);
+    const cacheKey = cacheKeys.userSuggestions(keyword || "default");
     // Check cache first
     const catched = await getCache(cacheKey);
 
     if (catched) {
         return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                JSON.parse(catched),
-                'User suggestions fetched from cache'
-            )
-        );
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    JSON.parse(catched),
+                    "User suggestions fetched from cache"
+                )
+            );
     }
 
     // For simplicity, we will return the latest 5 users as suggestions
     const query = keyword
-        ? { username: { $regex: keyword, $options: 'i' } }
+        ? { username: { $regex: keyword, $options: "i" } }
         : {};
+    console.log("Query for suggestions:", query);
+
     const users = await User.find(query)
         .sort({ createdAt: -1 })
         .limit(5)
+        .select(
+            "_id username fullName avatar bio website isVerified followersCount followingCount postsCount createdAt"
+        )
         .lean();
 
     // Store suggestions in cache
     await setCache(cacheKey, users, 3600); // Cache for 1 hour
 
-
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            users,
-            'User suggestions fetched successfully'
-        )
-    );
+        .status(200)
+        .json(
+            new ApiResponse(200, users, "User suggestions fetched successfully")
+        );
 });
 
 // Search users
@@ -258,36 +225,32 @@ export const searchUsers = asyncHandler(async (req, res) => {
 
     if (catched) {
         return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                JSON.parse(catched),
-                'Search results fetched from cache'
-            )
-        );
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    JSON.parse(catched),
+                    "Search results fetched from cache"
+                )
+            );
     }
 
     // Search users by username or full name
     const users = await User.find({
         $or: [
-            { username: { $regex: q, $options: 'i' } },
-            { fullName: { $regex: q, $options: 'i' } }
-        ]
-    }).lean();  
+            { username: { $regex: q, $options: "i" } },
+            { fullName: { $regex: q, $options: "i" } },
+        ],
+    }).lean();
 
     // Store search results in cache
     await setCache(cacheKey, users, 3600); // Cache for 1 hour
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            users,
-            'Search results fetched successfully'
-        )
-    );
+        .status(200)
+        .json(
+            new ApiResponse(200, users, "Search results fetched successfully")
+        );
 });
 
 // Get user followers
@@ -298,33 +261,34 @@ export const getUserFollowers = asyncHandler(async (req, res) => {
 
     // Check cache first
     const catched = await getCache(cacheKey);
-   if (catched) {
+    if (catched) {
         return res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    JSON.parse(catched),
+                    "Followers fetched from cache"
+                )
+            );
+    }
+    const user = await User.findById(id)
+        .populate("followers", "username fullName avatar")
+        .lean();
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    return res
         .status(200)
         .json(
             new ApiResponse(
                 200,
-                JSON.parse(catched),
-                'Followers fetched from cache'
+                user.followers,
+                "Followers fetched successfully"
             )
         );
-    }
-    const user = await User.findById(id).populate('followers', 'username fullName avatar').lean();
-
-    if (!user) {
-        throw new ApiError(404, 'User not found');
-    }
-
-    return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            user.followers,
-            'Followers fetched successfully'
-        )
-    );
-
 });
 
 // Get user following
@@ -337,34 +301,36 @@ export const getUserFollowing = asyncHandler(async (req, res) => {
 
     if (catched) {
         return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                JSON.parse(catched),
-                'Following fetched from cache'
-            )
-        );
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    JSON.parse(catched),
+                    "Following fetched from cache"
+                )
+            );
     }
 
-    const user = await User.findById(id).populate('following', 'username fullName avatar').lean();
+    const user = await User.findById(id)
+        .populate("following", "username fullName avatar")
+        .lean();
 
     if (!user) {
-        throw new ApiError(404, 'User not found');
+        throw new ApiError(404, "User not found");
     }
 
     // Store following list in cache
     await setCache(cacheKey, user.following, 3600); // Cache for 1 hour
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            user.following, 
-            'Following fetched successfully'
-        )
-    );
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                user.following,
+                "Following fetched successfully"
+            )
+        );
 });
 
 // Follow user
@@ -373,7 +339,7 @@ export const followUser = asyncHandler(async (req, res) => {
     const { id: targetUserId } = req.params;
 
     if (userId === targetUserId) {
-        throw new ApiError(400, 'You cannot follow yourself');
+        throw new ApiError(400, "You cannot follow yourself");
     }
 
     // Add target user to current user's following list
@@ -381,7 +347,7 @@ export const followUser = asyncHandler(async (req, res) => {
         userId,
         { $addToSet: { following: targetUserId } },
         { new: true }
-    )
+    );
 
     // Add current user to target user's followers list
     await User.findByIdAndUpdate(
@@ -395,15 +361,8 @@ export const followUser = asyncHandler(async (req, res) => {
     await redisClient.del(cacheKeys.userFollowing(userId));
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            user,
-            'User followed successfully'
-        )
-    );
-
+        .status(200)
+        .json(new ApiResponse(200, user, "User followed successfully"));
 });
 
 // Unfollow user
@@ -412,7 +371,7 @@ export const unfollowUser = asyncHandler(async (req, res) => {
     const { id: targetUserId } = req.params;
 
     if (userId === targetUserId) {
-        throw new ApiError(400, 'You cannot unfollow yourself');
+        throw new ApiError(400, "You cannot unfollow yourself");
     }
     // Remove target user from current user's following list
     const user = await User.findByIdAndUpdate(
@@ -433,14 +392,8 @@ export const unfollowUser = asyncHandler(async (req, res) => {
     await redisClient.del(cacheKeys.userFollowing(userId));
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            user,
-            'User unfollowed successfully'
-        )
-    );
+        .status(200)
+        .json(new ApiResponse(200, user, "User unfollowed successfully"));
 });
 
 // Block user
@@ -449,7 +402,7 @@ export const blockUser = asyncHandler(async (req, res) => {
     const { id: targetUserId } = req.params;
 
     if (userId === targetUserId) {
-        throw new ApiError(400, 'You cannot block yourself');
+        throw new ApiError(400, "You cannot block yourself");
     }
 
     // Add target user to current user's blocked list
@@ -464,14 +417,8 @@ export const blockUser = asyncHandler(async (req, res) => {
     await redisClient.del(cacheKeys.userFollowing(userId));
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            user,
-            'User blocked successfully'
-        )
-    );
+        .status(200)
+        .json(new ApiResponse(200, user, "User blocked successfully"));
 });
 
 // Unblock user
@@ -480,7 +427,7 @@ export const unblockUser = asyncHandler(async (req, res) => {
     const { id: targetUserId } = req.params;
 
     if (userId === targetUserId) {
-        throw new ApiError(400, 'You cannot unblock yourself');
+        throw new ApiError(400, "You cannot unblock yourself");
     }
 
     // Remove target user from current user's blocked list
@@ -495,12 +442,6 @@ export const unblockUser = asyncHandler(async (req, res) => {
     await redisClient.del(cacheKeys.userFollowing(userId));
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200, 
-            user,
-            'User unblocked successfully'
-        )
-    );
+        .status(200)
+        .json(new ApiResponse(200, user, "User unblocked successfully"));
 });
