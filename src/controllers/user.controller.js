@@ -1,4 +1,6 @@
 import { User } from "../model/user.model.js";
+import { Follow } from "../model/follow.model.js";
+import { Block } from "../model/block.model.js";
 import redisClient from "../config/redis.config.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -56,7 +58,7 @@ export const getUserProfile = asyncHandler(async (req, res) => {
 // FIXME: MY REQ.FILE AND USERNAME ARE NOT COMING IN UPDATE PROFILE. CHECK WHY
 // Update user profile
 export const updateUserProfile = asyncHandler(async (req, res) => {
-    const userId = req.user.id; 
+    const userId = req.user.id;
 
     const { fullName, bio, gender, website } = req.body;
 
@@ -265,35 +267,41 @@ export const getUserFollowers = asyncHandler(async (req, res) => {
         return res
             .status(200)
             .json(
-                new ApiResponse(
-                    200,
-                    JSON.parse(catched),
-                    "Followers fetched from cache"
-                )
+                new ApiResponse(200, catched, "Followers fetched from cache")
             );
     }
-    const user = await User.findById(id)
-        .populate("followers", "username fullName avatar")
-        .lean();
 
-    if (!user) {
-        throw new ApiError(404, "User not found");
+    const followers = await Follow.find({
+        following: id,
+    })
+        .populate("follower", "username fullName avatar isVerified")
+        .lean();
+    console.log("Followers for user", followers);
+
+    if (!followers) {
+        throw new ApiError(404, "Followers not found");
     }
 
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                user.followers,
-                "Followers fetched successfully"
-            )
-        );
+    // Store followers list in cache
+    await setCache(
+        cacheKey,
+        followers.map((f) => f.follower),
+        3600
+    ); // Cache for 1 hour
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            followers.map((f) => f.follower),
+            "Followers fetched successfully"
+        )
+    );
 });
 
 // Get user following
 export const getUserFollowing = asyncHandler(async (req, res) => {
     const { id } = req.params;
+
     const cacheKey = cacheKeys.userFollowing(id);
 
     // Check cache first
@@ -303,31 +311,34 @@ export const getUserFollowing = asyncHandler(async (req, res) => {
         return res
             .status(200)
             .json(
-                new ApiResponse(
-                    200,
-                    JSON.parse(catched),
-                    "Following fetched from cache"
-                )
+                new ApiResponse(200, catched, "Following fetched from cache")
             );
     }
 
-    const user = await User.findById(id)
+    const following = await Follow.find({
+        follower: id,
+    })
         .populate("following", "username fullName avatar")
         .lean();
 
-    if (!user) {
+    console.log("Following for user", following);
+
+    if (!following) {
         throw new ApiError(404, "User not found");
     }
 
+    // following list
+    const followingList = following.map((item) => item.following);
+
     // Store following list in cache
-    await setCache(cacheKey, user.following, 3600); // Cache for 1 hour
+    await setCache(cacheKey, followingList, 3600); // Cache for 1 hour
 
     return res
         .status(200)
         .json(
             new ApiResponse(
                 200,
-                user.following,
+                followingList,
                 "Following fetched successfully"
             )
         );
@@ -341,20 +352,22 @@ export const followUser = asyncHandler(async (req, res) => {
     if (userId === targetUserId) {
         throw new ApiError(400, "You cannot follow yourself");
     }
+    //  check if the follow relationship already exists
+    const exisitingfollow = await Follow.findOne({
+        follower: userId,
+        following: targetUserId,
+    });
 
-    // Add target user to current user's following list
-    const user = await User.findByIdAndUpdate(
-        userId,
-        { $addToSet: { following: targetUserId } },
-        { new: true }
-    );
+    // If already following, return error
+    if (exisitingfollow) {
+        throw new ApiError(400, "You are already following this user");
+    }
 
-    // Add current user to target user's followers list
-    await User.findByIdAndUpdate(
-        targetUserId,
-        { $addToSet: { followers: userId } },
-        { new: true }
-    );
+    // create follow relationship
+    const follow = await Follow.create({
+        follower: userId,
+        following: targetUserId,
+    });
 
     // Invalidate caches for both users
     await redisClient.del(cacheKeys.userFollowers(targetUserId));
@@ -362,7 +375,7 @@ export const followUser = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .json(new ApiResponse(200, user, "User followed successfully"));
+        .json(new ApiResponse(200, null, "User followed successfully"));
 });
 
 // Unfollow user
@@ -373,19 +386,17 @@ export const unfollowUser = asyncHandler(async (req, res) => {
     if (userId === targetUserId) {
         throw new ApiError(400, "You cannot unfollow yourself");
     }
-    // Remove target user from current user's following list
-    const user = await User.findByIdAndUpdate(
-        userId,
-        { $pull: { following: targetUserId } },
-        { new: true }
-    );
 
-    // Remove current user from target user's followers list
-    await User.findByIdAndUpdate(
-        targetUserId,
-        { $pull: { followers: userId } },
-        { new: true }
-    );
+    // Remove follow relationship
+    const unfollow = await Follow.findOneAndDelete({
+        follower: userId,
+        following: targetUserId,
+    });
+
+    // If not following, return error
+    if (!unfollow) {
+        throw new ApiError(400, "You are not following this user");
+    }
 
     // Invalidate caches for both users
     await redisClient.del(cacheKeys.userFollowers(targetUserId));
@@ -393,7 +404,7 @@ export const unfollowUser = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .json(new ApiResponse(200, user, "User unfollowed successfully"));
+        .json(new ApiResponse(200, null, "User unfollowed successfully"));
 });
 
 // Block user
@@ -405,20 +416,48 @@ export const blockUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "You cannot block yourself");
     }
 
-    // Add target user to current user's blocked list
-    const user = await User.findByIdAndUpdate(
-        userId,
-        { $addToSet: { blocked: targetUserId } },
-        { new: true }
-    );
+    // check blocked user
+    const alreadyBlocked = await Block.findOne({
+        blocker: userId,
+        blocked: targetUserId,
+    });
+
+    if (alreadyBlocked) {
+        throw new ApiError(400, "User already blocked");
+    }
+
+    // blocked the user
+    await Block.create({
+        blocker: userId,
+        blocked: targetUserId,
+    });
+
+    // remove follow relationships
+    await Follow.deleteMany({
+        $or: [
+            {
+                follower: userId,
+                following: targetUserId,
+            },
+
+            {
+                follower: targetUserId,
+                following: userId,
+            },
+        ],
+    });
 
     // Invalidate caches for both users
-    await redisClient.del(cacheKeys.userFollowers(targetUserId));
-    await redisClient.del(cacheKeys.userFollowing(userId));
+    await Promise.all([
+        redisClient.del(cacheKeys.userFollowers(userId)),
+        redisClient.del(cacheKeys.userFollowing(userId)),
+        redisClient.del(cacheKeys.userFollowers(targetUserId)),
+        redisClient.del(cacheKeys.userFollowing(targetUserId)),
+    ]);
 
     return res
         .status(200)
-        .json(new ApiResponse(200, user, "User blocked successfully"));
+        .json(new ApiResponse(200, null, "User blocked successfully"));
 });
 
 // Unblock user
@@ -430,12 +469,13 @@ export const unblockUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "You cannot unblock yourself");
     }
 
-    // Remove target user from current user's blocked list
-    const user = await User.findByIdAndUpdate(
-        userId,
-        { $pull: { blocked: targetUserId } },
-        { new: true }
-    );
+    // unblock the user 
+    const unblock = await Block.findOneAndDelete(
+        {
+            blocker: userId,
+            blocked: targetUserId   
+        }
+    )
 
     // Invalidate caches for both users
     await redisClient.del(cacheKeys.userFollowers(targetUserId));
@@ -443,5 +483,5 @@ export const unblockUser = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .json(new ApiResponse(200, user, "User unblocked successfully"));
+        .json(new ApiResponse(200, null, "User unblocked successfully"));
 });

@@ -8,7 +8,9 @@ export const cacheKeys = {
 
     followers: (userId) => `followers:${userId}`,
 
-    following: (userId) => `following:${userId}`,
+    userFollowers: (targetUserId) => `followers:${targetUserId}`,
+
+    userFollowing: (userId) => `following:${userId}`,
 
     feed: (userId) => `feed:${userId}`,
 
