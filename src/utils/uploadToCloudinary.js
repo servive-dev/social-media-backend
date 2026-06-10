@@ -1,14 +1,40 @@
 import cloudinary from "../config/cloudinary.js";
 
-export const uploadToCloudinary = async (fileBuffer, folder, resourceType = "image") => {
-    const base64 = fileBuffer.toString("base64");
+export const uploadToCloudinary = async (
+    filePath, 
+    folder, 
+    resourceType = "image"
+) => {
 
-    const dataUri = `data:${resourceType === "video" ? "video/mp4" : "image/jpeg"};base64,${base64}`;
-
-    const result = await cloudinary.uploader.upload(dataUri, {
+    const result = await cloudinary.uploader.upload(filePath, {
         folder,
         resource_type: resourceType
     });
 
     return result;
+};
+
+
+// Delete file
+export const deleteFromCloudinary = async (
+    publicId,
+    resourceType = "image" 
+) => {
+    try {
+
+        const result = await cloudinary.uploader.destroy(
+            publicId,
+            {
+                resource_type: resourceType,
+            }
+        );
+
+        return result;
+
+    } catch (error) {
+
+        console.error("Cloudinary Delete Error:", error);
+
+        throw error;
+    }
 };

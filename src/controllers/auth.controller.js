@@ -20,6 +20,7 @@ import {
     expiredCache 
 } from "../services/cache.service.js";
 import { cacheKeys } from "../utils/cacheKeys.js";
+import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 
 
 
@@ -32,12 +33,23 @@ export const registerUser = asyncHandler(async (req, res) => {
         phone,
         dob,
         gender,
-        // avatar,
+        avatar,
         password,
     } = req.body;
 
     // generate cachekey
-    const registerKey = cacheKeys.registerUser(email)
+    const registerKey = cacheKeys.registerUser(email);
+
+
+    const originalPath = req.file.path;
+
+    const uploadResult = await uploadToCloudinary(
+        originalPath,
+        "avatars"
+    )
+    if (!uploadResult) {
+        throw new ApiError(500, "Avatar upload failed!")
+    }
 
     // set temp data in redis 
     await setCache(
@@ -49,7 +61,10 @@ export const registerUser = asyncHandler(async (req, res) => {
             // phone,
             dob,
             gender,
-            // avatar,
+            avatar: {
+                url: uploadResult.secure_url,
+                publicId: uploadResult.public_id
+            },
             password
         },
         600   // 10min
@@ -122,7 +137,10 @@ export const registerVerifyOtp = asyncHandler(async (req, res) => {
             dob: userData.dob,
             gender: userData.gender,
             password: userData.password,
-            avatar: userData?.avatar,
+            avatar: {
+            url: userData?.avatar?.url,
+            publicId: userData?.avatar?.publicId
+        },
             status: "active"
         }
     )

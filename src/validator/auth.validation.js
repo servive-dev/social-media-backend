@@ -1,8 +1,7 @@
 import { z } from "zod";
 
 // Validation schema for user registration
-export const registerSchema = z
-    .object({
+export const registerSchema = z.object({
         username: z
             .string()
             .min(3, "Username must be at least 3 characters")
@@ -58,6 +57,20 @@ export const registerSchema = z
             path: ["email"], // error kis field par show karna hai
         }
     );
+
+// Avatar validation (req.file ke liye)
+// export const avatarSchema = z.object({
+//     // mimetype: z.enum([
+//     //     "image/jpeg",
+//     //     "image/png",
+//     //     "image/webp",
+//     //     "image/jpg",
+//     // ]),
+
+//     size: z
+//         .number()
+//         .max(50 * 1024 * 1024, "Avatar must be less than 50MB"),
+// });
 
 export const loginSchema = z.object({
     username: z

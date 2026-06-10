@@ -25,6 +25,7 @@ import {
     resetPasswordSchema,
     changePasswordSchema,
     registerOtpSchema,
+    // avatarSchema,
 } from "../validator/auth.validation.js";
 import {
     registerLimiter,
@@ -38,13 +39,14 @@ import {
     passwordChangedLimiter,
 } from "../middleware/rateLimit.middlware.js";
 import { verifyJWT } from "../middleware/jwtVerify.middleware.js";
+import { upload } from "../middleware/multer.middleware.js"
 
 const router = Router();
 
 // REGISTER ROUTE
 router
     .route("/register")
-    .post(registerLimiter, validate(registerSchema), registerUser);
+    .post(registerLimiter, upload.single("avatar") ,validate(registerSchema),registerUser);
 
 // OTP ROUTES
 router

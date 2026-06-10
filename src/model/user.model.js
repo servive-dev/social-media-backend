@@ -61,10 +61,18 @@ const userSchema = new mongoose.Schema(
             select: false,
         },
 
+
         avatar: {
-            type: String,
-            default: "",
+            url: {
+                type: String,
+                required: true,
+            },
+            publicId: {
+                type: String,
+                required: true,
+            },
         },
+
 
         bio: {
             type: String,
@@ -136,6 +144,11 @@ const userSchema = new mongoose.Schema(
             default: 0,
         },
 
+        reelsCount: {
+            type: Number,
+            default: 0,
+        },
+
         // ================== Security & Permissions ==================
         passwordChangedAt: {
             type: Date,
@@ -148,6 +161,11 @@ const userSchema = new mongoose.Schema(
         },
 
         emailChangedAt: {
+            type: Date,
+            default: null,
+        },
+
+        avatarChangedAt: {
             type: Date,
             default: null,
         },

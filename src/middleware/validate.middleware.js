@@ -14,6 +14,6 @@ export const validate = (schema) => (req, res, next) => {
         console.log(error);
         return res
             .status(400)
-            .json(new ApiError(400, {}, "Validation Error", error.error));
+            .json(new ApiError(400, {}, "Validation Error", error.errors));
     }
 };
