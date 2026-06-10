@@ -11,6 +11,7 @@ import {
     getMe,
     resetPassword,
     changePassword,
+    registerVerifyOtp,
 } from "../controllers/auth.controller.js";
 import { validate } from "../middleware/validate.middleware.js";
 import {
@@ -23,6 +24,7 @@ import {
     forgetPasswordSchema,
     resetPasswordSchema,
     changePasswordSchema,
+    registerOtpSchema,
 } from "../validator/auth.validation.js";
 import {
     registerLimiter,
@@ -51,6 +53,9 @@ router
 router
     .route("/resend-otp")
     .post(resendOtpLimiter,validate(resendOtpSchema ), resendOtp);
+router
+    .route("/register-otp")
+    .post(resendOtpLimiter,validate(registerOtpSchema), registerVerifyOtp);
 
 // LOGIN ROUTE
 router

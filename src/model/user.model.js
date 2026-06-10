@@ -93,10 +93,10 @@ const userSchema = new mongoose.Schema(
             default: false,
         },
 
-        isVerified: {
-            type: Boolean,
-            default: false,
-        },
+        // isVerified: {
+        //     type: Boolean,
+        //     default: false,
+        // },
 
         status: {
             type: String,
@@ -115,7 +115,7 @@ const userSchema = new mongoose.Schema(
             default: null,
         },
 
-        loginCount: {
+        loginCount: { 
             type: Number,
             default: 0,
         },
@@ -138,6 +138,16 @@ const userSchema = new mongoose.Schema(
 
         // ================== Security & Permissions ==================
         passwordChangedAt: {
+            type: Date,
+            default: null,
+        },
+
+        usernameChangedAt: {
+            type: Date,
+            default: null,
+        },
+
+        emailChangedAt: {
             type: Date,
             default: null,
         },

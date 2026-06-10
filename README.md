@@ -288,7 +288,7 @@ POST    /api/v1/auth/reset-password
 PATCH   /api/v1/auth/change-password
 GET     /api/v1/auth/me
 
-## USER 
+## USER ✅
 GET     /api/v1/users/:username
 PATCH   /api/v1/users/profile
 PATCH   /api/v1/users/avatar

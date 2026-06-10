@@ -11,34 +11,53 @@ import redisClient from "../config/redis.config.js";
 import { getLoginMeta } from "../utils/loginMeta.util.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { 
+    getCache, 
+    setCache, 
+    deleteCache, 
+    incrementCache, 
+    ttlCache, 
+    expiredCache 
+} from "../services/cache.service.js";
+import { cacheKeys } from "../utils/cacheKeys.js";
+
+
 
 // Controller for register user
 export const registerUser = asyncHandler(async (req, res) => {
     const {
-        username: uname,
+        username,
         fullName,
-        email: mail,
+        email,
         phone,
         dob,
+        gender,
+        // avatar,
         password,
     } = req.body;
 
-    const createdUser = await User.create({
-        username: uname,
-        fullName,
-        email: mail ,
-        phone: phone || undefined,
-        dob,
-        password,
-        status: "inactive",
-    });
+    // generate cachekey
+    const registerKey = cacheKeys.registerUser(email)
 
-    const { _id, username, email, status } = createdUser;
+    // set temp data in redis 
+    await setCache(
+        registerKey,
+        { 
+            username,
+            fullName,
+            email,
+            // phone,
+            dob,
+            gender,
+            // avatar,
+            password
+        },
+        600   // 10min
+    ) 
 
     // otp created
     await createOTP({
         type: EMAIL_TYPES.REGISTER,
-        userId: _id,
         email,
         username,
         purpose: EMAIL_TYPES.REGISTER
@@ -48,27 +67,94 @@ export const registerUser = asyncHandler(async (req, res) => {
         new ApiResponse(
             201,
             {
-                userId: _id,
-                username,
-                email,
-                status,
+                email
             },
             "OTP send successfully"
         )
     );
 });
 
+// Controller for register verify otp
+export const registerVerifyOtp = asyncHandler(async (req, res) => {
+    const {email, type, otp} = req.body;
+
+    const otpKey = cacheKeys.otp(type, email);
+    const attemptKey = cacheKeys.attempt(type, email)
+
+    const storedOTP = await getCache(otpKey)
+    if (!storedOTP) {
+        throw new ApiError(401, "OTP Expired or not found")
+    }
+
+    const attempts = Number(await getCache(attemptKey)) || 0;
+
+    if (attempts >= 5) {
+        await deleteCache(attemptKey)
+        throw new ApiError(429, "Too many attempts ")
+    }
+
+    if (storedOTP !== Number(otp)) {
+        await incrementCache(attemptKey);
+        const ttl = await ttlCache(attemptKey);
+
+        if (ttl === -1) {
+            await expiredCache(attemptKey, 600)
+        }
+        throw new ApiError(400, "Invalid OTP")
+    }
+
+    const registerKey = cacheKeys.registerUser(email)
+    const registeredData = await getCache(registerKey)
+
+    if (!registeredData) {
+        await deleteCache(otpKey)
+        throw new ApiError(404, " Register Data Expired ")
+    }
+
+    const userData = typeof registeredData === 'string' ? JSON.parse(registeredData) : registeredData;
+
+    const user = await User.create(
+        {
+            username: userData.username,
+            email: userData.email,
+            fullName: userData.fullName,
+            phone: userData?.phone,
+            dob: userData.dob,
+            gender: userData.gender,
+            password: userData.password,
+            avatar: userData?.avatar,
+            status: "active"
+        }
+    )
+
+    await deleteCache(registerKey);
+    await deleteCache(otpKey);
+    await deleteCache(attemptKey);
+    
+    return res
+    .status(201)
+    .json(
+        new ApiResponse(
+            201,
+            {
+                userId: user._id,
+                username: user.username,
+                email: user.email
+            },
+            "Account created Successfully "
+        )
+    )
+
+})
+
 // Controller for verify otp
 export const verifyOtp = asyncHandler(async (req, res) => {
-    const { userId, otp, type } = req.body;
+    const { email, otp, type } = req.body;
 
-    const otpKey = `otp:${type}:${userId}`;
-    const attemptKey = `otp:attempts:${type}:${userId}`;
-    console.log("attemptKey : ", attemptKey)
+    const otpkey = cacheKeys.otp(type, email)
+    const attemptKey = cacheKeys.attempt(type, email)
 
-    const storedOtp = await redisClient.get(otpKey);
-    console.log("storedOtp : ", storedOtp)
-
+    const storedOtp = getCache(otpkey)
     if (!storedOtp) {
         throw new ApiError(400, "OTP expired or not found");
     }
@@ -181,13 +267,13 @@ export const loginUser = asyncHandler(async (req, res) => {
     const user = await User.findOne(query).select("+password");
 
     if (!user) {
-        throw new ApiError(400, "Invalid credentials");
+        throw new ApiError(401, "Invalid credentials");
     }
 
     // check password
     const matchPassword = await user.matchPassword(password);
     if (!matchPassword) {
-        throw new ApiError(400, "Password is Incorrect");
+        throw new ApiError(401, "Invalid credentials");
     }
 
     //  Generate Refresh And Access Token
@@ -207,17 +293,17 @@ export const loginUser = asyncHandler(async (req, res) => {
     });
 
     // LOGIN META
-    const loginMeta = getLoginMeta(req);
+    // const loginMeta = getLoginMeta(req);
 
     // LOGIN ALERT EMAIL QUEUE
-    await addEmailJob({
-        type: EMAIL_TYPES.LOGIN_ALERT,
-        to: user.email,
-        username: user.username,
-        email: user.email,
+    // await addEmailJob({
+    //     type: EMAIL_TYPES.LOGIN_ALERT,
+    //     to: user.email,
+    //     username: user.username,
+    //     email: user.email,
 
-        ...loginMeta,
-    });
+    //     ...loginMeta,
+    // });
 
     // set secure cookies
     res.cookie("accessToken", accessToken, {
@@ -232,7 +318,7 @@ export const loginUser = asyncHandler(async (req, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
-        maxAge: 15 * 24 * 60 * 60 * 1000, // 15Days
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30Days
     });
 
     // Response

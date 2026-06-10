@@ -110,6 +110,22 @@ export const verifyOtpSchema = z.object({
     }),
 });
 
+export const registerOtpSchema = z.object({
+   email: z
+        .string()
+        .email("Invalid email address")
+        .transform((email) => email.toLowerCase().trim()),
+
+   type: z.enum([
+      "REGISTER",
+      "FORGOT_PASSWORD",
+      "EMAIL_CHANGE",
+      "PHONE_CHANGE",
+    ], {
+      required_error: "OTP type is required",
+    }),
+});
+
 export const resendOtpSchema = z.object({
    userId: z
       .string({ required_error: "userId is required" })

@@ -35,3 +35,29 @@ export const deleteCache = async (key) => {
     }
 };
 
+// function to increment by cache key 
+export const incrementCache = async(key) => {
+    try {
+        return await redisClient.incr(key);
+    } catch (error) {
+        console.error('Error while increment in redis: ', error)
+    }
+}
+
+// function to get ttl by cache key 
+export const ttlCache = async(key) => {
+    try {
+        return await redisClient.ttl(key);
+    } catch (error) {
+        console.error('Error while increment in redis: ', error)
+    }
+}
+
+// function to expire the data by cache key 
+export const expiredCache = async(key, time) => {
+    try {
+        await redisClient.expire(key, time)
+    } catch (error) {
+        console.error('Error while increment in redis: ', error)
+    }
+}

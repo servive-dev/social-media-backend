@@ -17,11 +17,14 @@ export const createOTP = async ({
     const otp = generateOTP();
 
     // Save OTP in Redis for 5 mins
-    const otpKey = `otp:${type}:${userId}`;
-    console.log("otp_key : ",otpKey)
+    // const otpKey = `otp:${type}:${userId}`;
+    const otpKey = `otp:${type}:${email}`;
+    console.log("otp_key : ", otpKey)
+
     await redisClient.setEx(otpKey, 300, otp);
 
     const check = await redisClient.get(otpKey);
+    
     console.log("IMMEDIATE CHECK OTP:", check);
 
     if (phone) {

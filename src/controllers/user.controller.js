@@ -9,23 +9,10 @@ import { cacheKeys } from "../utils/cacheKeys.js";
 import { getCache, setCache } from "../services/cache.service.js";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 
-// TODO: GET     /api/v1/users/:username ✅
-// TODO: PATCH   /api/v1/users/profile ✅
-// TODO: PATCH   /api/v1/users/avatar ✅
-// TODO: DELETE  /api/v1/users/avatar ✅
-// TODO: GET     /api/v1/users/suggestions ✅
-// TODO: GET     /api/v1/users/search?q= ✅
-// TODO: GET     /api/v1/users/:id/followers ✅
-// TODO: GET     /api/v1/users/:id/following ✅
-// TODO: POST    /api/v1/users/:id/follow ✅
-// TODO: DELETE  /api/v1/users/:id/follow ✅
-// TODO: POST    /api/v1/users/block/:id ✅
-// TODO: DELETE  /api/v1/users/block/:id ✅
 
 // Get user profile
 export const getUserProfile = asyncHandler(async (req, res) => {
     const { username } = req.params;
-    console.log("Fetching user profile for:", username);
 
     const cacheKey = cacheKeys.user(username);
 
