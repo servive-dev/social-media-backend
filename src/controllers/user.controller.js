@@ -9,6 +9,20 @@ import { cacheKeys } from "../utils/cacheKeys.js";
 import { getCache, setCache } from "../services/cache.service.js";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 
+// TODO: RECHECK THE DATA FLOW AND REDIS IMPLEMENTATION 
+/*
+    1. CHECK REDIS KEY ARE GENERATE PROPERLY AND SET DATA PROPERLY 
+    2. VALIDATION CHECK 
+    3. USE SENTITIZER FUNCTION OF USER
+    4. CHECK REDIS KEY AND VALUE DELETED PROPERLY OR NOT 
+    5. SEND MAIL IF EMAIL ARE UPDATE OR CHANGE OR AVATAR AND USERNAME OR PROFILE UPDATE
+    6. RESPOSNE SEND PROPERLY 
+    7. DATA SEND PROPERLY - NECCESSARY FIELD ONLY 
+    8. REMOVE UNNESSARY IMPORTED STATEMENTS AND CONSOLE STATEMENT
+    9. UPDATE CLOUIDNARY FUNCTION
+    10. IF NEEDS USE PIPELINE  
+*/
+
 
 // Get user profile
 export const getUserProfile = asyncHandler(async (req, res) => {
@@ -27,7 +41,7 @@ export const getUserProfile = asyncHandler(async (req, res) => {
     // Fetch user from database
     const user = await User.findOne({ username })
         .select(
-            "_id username fullName avatar bio website isVerified followersCount followingCount postsCount createdAt"
+            "_id username fullName avatar bio website followersCount followingCount postsCount createdAt"
         )
         .lean();
     if (!user) {

@@ -11,78 +11,89 @@ import redisClient from "../config/redis.config.js";
 import { getLoginMeta } from "../utils/loginMeta.util.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { 
-    getCache, 
-    setCache, 
-    deleteCache, 
-    incrementCache, 
-    ttlCache, 
-    expiredCache 
+import {
+    getCache,
+    setCache,
+    deleteCache,
+    incrementCache,
+    ttlCache,
+    expiredCache,
 } from "../services/cache.service.js";
 import { cacheKeys } from "../utils/cacheKeys.js";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 
 
+// TODO: COMPLETE FLOW RESET KRNA HAI REGISTER KA LIKE 
+/*  
+    1. CHECK USER EXISTS WITH EMAIL OR PHONENUMBER 
+    2. CREATE REGISTER KEY
+    3. AVATAR URL CHECK 
+    4. SET DATA TO REDIS 
+    5. GENERATE OTP
+    6. SEND OTP MAIL (TYPE, TO , DATA: {OTP, PURPOSE-LIKE - REGISTER ,FORGOT PASSWORD})
+    7. RESPONSE 
+
+    ----
+    1. MAKE THE SENITIZE FUNCTIONS OF USERS 
+    2. MAKE A UTILS FUNCTIONS 
+    3. CHECK THE REDIS USE BY - CACHE SERVICES FN() LIKE - SETCACHE , GETCACHE
+    4. SESSION CREATION ON LOGIN OR NOT 
+    5. SAVE ALL DETAILS OF LOGIN IN SESSION OR NOT 
+    6. FIRST STORE IN REDIS AFTER BEFORE SAVE DIRECTLY TO DATEBASE OF SESSIONS
+    7. CHECK STATUS OF USER FIRST ITS BLOCKED OR NOT 
+    8. CHECK STATUS OF USER ITS ACTIVE OR NOT 
+    9. CHECK DELETED ACCOUNT OR NOT  
+    10. REMOVE UNNECESSARY IMPORTS FILES AND CONSOLE STATEMENTS 
+    11. ADD LOGGING SYSTEM TO TRACK THEM 
+    */ 
 
 // Controller for register user
 export const registerUser = asyncHandler(async (req, res) => {
-    const {
-        username,
-        fullName,
-        email,
-        phone,
-        dob,
-        gender,
-        avatar,
-        password,
-    } = req.body;
+    const { username, fullName, email, phone, dob, gender, avatar, password } =
+        req.body;
 
     // generate cachekey
     const registerKey = cacheKeys.registerUser(email);
 
-
     const originalPath = req.file.path;
 
-    const uploadResult = await uploadToCloudinary(
-        originalPath,
-        "avatars"
-    )
+    const uploadResult = await uploadToCloudinary(originalPath, "avatars");
     if (!uploadResult) {
-        throw new ApiError(500, "Avatar upload failed!")
+        throw new ApiError(500, "Avatar upload failed!");
     }
 
-    // set temp data in redis 
+    // set temp data in redis
     await setCache(
         registerKey,
-        { 
+        {
             username,
             fullName,
             email,
-            // phone,
+            phone,
             dob,
             gender,
             avatar: {
                 url: uploadResult.secure_url,
-                publicId: uploadResult.public_id
+                publicId: uploadResult.public_id,
             },
-            password
+            password,
         },
-        600   // 10min
-    ) 
+        600 // 10min
+    );
 
     // otp created
     await createOTP({
         type: EMAIL_TYPES.REGISTER,
         email,
         username,
-        purpose: EMAIL_TYPES.REGISTER
+        purpose: EMAIL_TYPES.REGISTER,
     });
 
     return res.status(201).json(
         new ApiResponse(
             201,
             {
-                email
+                email,
             },
             "OTP send successfully"
         )
@@ -91,21 +102,21 @@ export const registerUser = asyncHandler(async (req, res) => {
 
 // Controller for register verify otp
 export const registerVerifyOtp = asyncHandler(async (req, res) => {
-    const {email, type, otp} = req.body;
+    const { email, type, otp } = req.body;
 
     const otpKey = cacheKeys.otp(type, email);
-    const attemptKey = cacheKeys.attempt(type, email)
+    const attemptKey = cacheKeys.attempt(type, email);
 
-    const storedOTP = await getCache(otpKey)
+    const storedOTP = await getCache(otpKey);
     if (!storedOTP) {
-        throw new ApiError(401, "OTP Expired or not found")
+        throw new ApiError(401, "OTP Expired or not found");
     }
 
     const attempts = Number(await getCache(attemptKey)) || 0;
 
     if (attempts >= 5) {
-        await deleteCache(attemptKey)
-        throw new ApiError(429, "Too many attempts ")
+        await deleteCache(attemptKey);
+        throw new ApiError(429, "Too many attempts ");
     }
 
     if (storedOTP !== Number(otp)) {
@@ -113,66 +124,64 @@ export const registerVerifyOtp = asyncHandler(async (req, res) => {
         const ttl = await ttlCache(attemptKey);
 
         if (ttl === -1) {
-            await expiredCache(attemptKey, 600)
+            await expiredCache(attemptKey, 600);
         }
-        throw new ApiError(400, "Invalid OTP")
+        throw new ApiError(400, "Invalid OTP");
     }
 
-    const registerKey = cacheKeys.registerUser(email)
-    const registeredData = await getCache(registerKey)
+    const registerKey = cacheKeys.registerUser(email);
+    const registeredData = await getCache(registerKey);
 
     if (!registeredData) {
-        await deleteCache(otpKey)
-        throw new ApiError(404, " Register Data Expired ")
+        await deleteCache(otpKey);
+        throw new ApiError(404, " Register Data Expired ");
     }
 
-    const userData = typeof registeredData === 'string' ? JSON.parse(registeredData) : registeredData;
+    const userData =
+        typeof registeredData === "string"
+            ? JSON.parse(registeredData)
+            : registeredData;
 
-    const user = await User.create(
-        {
-            username: userData.username,
-            email: userData.email,
-            fullName: userData.fullName,
-            phone: userData?.phone,
-            dob: userData.dob,
-            gender: userData.gender,
-            password: userData.password,
-            avatar: {
+    const user = await User.create({
+        username: userData.username,
+        email: userData.email,
+        fullName: userData.fullName,
+        phone: userData?.phone,
+        dob: userData.dob,
+        gender: userData.gender,
+        password: userData.password,
+        avatar: {
             url: userData?.avatar?.url,
-            publicId: userData?.avatar?.publicId
+            publicId: userData?.avatar?.publicId,
         },
-            status: "active"
-        }
-    )
+        status: "active",
+    });
 
     await deleteCache(registerKey);
     await deleteCache(otpKey);
     await deleteCache(attemptKey);
-    
-    return res
-    .status(201)
-    .json(
+
+    return res.status(201).json(
         new ApiResponse(
             201,
             {
                 userId: user._id,
                 username: user.username,
-                email: user.email
+                email: user.email,
             },
             "Account created Successfully "
         )
-    )
-
-})
+    );
+});
 
 // Controller for verify otp
 export const verifyOtp = asyncHandler(async (req, res) => {
     const { email, otp, type } = req.body;
 
-    const otpkey = cacheKeys.otp(type, email)
-    const attemptKey = cacheKeys.attempt(type, email)
+    const otpkey = cacheKeys.otp(type, email);
+    const attemptKey = cacheKeys.attempt(type, email);
 
-    const storedOtp = getCache(otpkey)
+    const storedOtp = getCache(otpkey);
     if (!storedOtp) {
         throw new ApiError(400, "OTP expired or not found");
     }
@@ -350,7 +359,6 @@ export const loginUser = asyncHandler(async (req, res) => {
                     email: user.email,
                     fullName: user.fullName,
                     avatar: user?.avatar || "",
-                    isVerified: user.isVerified,
                     lastLogin: user.lastLogin,
                 },
             },
@@ -596,34 +604,30 @@ export const resetPassword = asyncHandler(async (req, res) => {
 
 // change Password
 export const changePassword = asyncHandler(async (req, res) => {
-   const { newPassword, confirmPassword } = req.body;
-   const userId = req.user?.id;
-   const user = await User.findById(userId);
+    const { newPassword, confirmPassword } = req.body;
+    const userId = req.user?.id;
+    const user = await User.findById(userId);
 
-   if (!user) {
-      throw new ApiError(404, "User not found");
-   }
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
 
-   // 2. PASSWORD update
-   user.password = newPassword;
-   await user.save();
+    // 2. PASSWORD update
+    user.password = newPassword;
+    await user.save();
 
-   // 3. SEND EMAIL (NON-BLOCKING)
-   addEmailJob({
-      type: EMAIL_TYPES.PASSWORD_CHANGED,
-      to: user.email,
-      username: user.username,
-      time: new Date().toLocaleString(),
-      ip: req.ip,
-      device: req.headers["user-agent"]
-   }).catch(console.error);
+    // 3. SEND EMAIL (NON-BLOCKING)
+    addEmailJob({
+        type: EMAIL_TYPES.PASSWORD_CHANGED,
+        to: user.email,
+        username: user.username,
+        time: new Date().toLocaleString(),
+        ip: req.ip,
+        device: req.headers["user-agent"],
+    }).catch(console.error);
 
-   // 4. RESPONSE
-   return res.status(200).json(
-      new ApiResponse(
-         200,
-         null,
-         "Password changed successfully"
-      )
-   );
+    // 4. RESPONSE
+    return res
+        .status(200)
+        .json(new ApiResponse(200, null, "Password changed successfully"));
 });

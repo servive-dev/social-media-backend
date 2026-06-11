@@ -11,6 +11,15 @@ import { loginAlertTemplate } from "../templates/loginAlert.template.js";
 import { deadLetterQueue } from "../queues/deadLetter.queue.js";
 import { otpEmailTemplate } from "../templates/otpEmail.template.js";
 
+// TODO: RECHECK THE MAIL TYPES AND TEMPLATE IMPLEMEATAIONS  
+/*
+    1. VALIDATION OF VALUES 
+    2. CHECK TO IF IS STRING OR NOT 
+    3. USE SWITCH CASE TO DIFFERNCIATE THE EMAIL TYPES - SEND EMAILS 
+    4. WORKER TRACKING 
+*/
+
+
 console.log("👷 Worker started...");
 
 const worker = new Worker(

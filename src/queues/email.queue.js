@@ -2,6 +2,15 @@ import { Queue } from "bullmq";
 import { bullMQConnection } from "../config/bullmq.config.js";
 import { JOBS_NAMES, QUEUE_NAMES } from "../constants/queue.constant.js";
 
+// TODO: RECHECK EMAIL QUEUE OTPTIONS 
+/*
+    1. JOB TRACKING STATUS AND TRACKING 
+    2. RE-CONFIGURE THE ADDEMAILJOB FUNCTIONS 
+    3. SEND JOB DATA 
+    4. IF POSSIBLE ADD LOGGING SYSTEM
+*/
+
+
 const emailQueue = new Queue(QUEUE_NAMES.EMAIL, {
     connection: bullMQConnection,
 
