@@ -7,10 +7,7 @@ import { EMAIL_TYPES, OTP_TYPES } from "../constants/email.constant.js";
 import { addEmailJob } from "../queues/email.queue.js";
 import { createSession } from "../utils/createSession.js";
 import { createOTP } from "../services/otp.service.js";
-import redisClient from "../config/redis.config.js";
-import { getLoginMeta } from "../utils/loginMeta.util.js";
 import jwt from "jsonwebtoken";
-import crypto from "crypto";
 import {
     getCache,
     setCache,
@@ -20,33 +17,23 @@ import {
     expiredCache,
 } from "../services/cache.service.js";
 import { cacheKeys } from "../utils/cacheKeys.js";
-import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
 import { processImg } from "../utils/compressAvatar.js";
+import { PURPOSE } from "../constants/auth.constant.js";
+import { generateResetToken } from "../utils/jwt.js";
 
-
-// TODO: COMPLETE FLOW RESET KRNA HAI REGISTER KA LIKE 
+// TODO: COMPLETE FLOW RESET KRNA HAI REGISTER KA LIKE
 /*  
-    1. CHECK USER EXISTS WITH EMAIL OR PHONENUMBER 
-    2. CREATE REGISTER KEY
-    3. AVATAR URL CHECK 
-    4. SET DATA TO REDIS 
-    5. GENERATE OTP
-    6. SEND OTP MAIL (TYPE, TO , DATA: {OTP, PURPOSE-LIKE - REGISTER ,FORGOT PASSWORD})
-    7. RESPONSE 
-
     ----
     1. MAKE THE SENITIZE FUNCTIONS OF USERS 
     2. MAKE A UTILS FUNCTIONS 
-    3. CHECK THE REDIS USE BY - CACHE SERVICES FN() LIKE - SETCACHE , GETCACHE
     4. SESSION CREATION ON LOGIN OR NOT 
     5. SAVE ALL DETAILS OF LOGIN IN SESSION OR NOT 
     6. FIRST STORE IN REDIS AFTER BEFORE SAVE DIRECTLY TO DATEBASE OF SESSIONS
-    7. CHECK STATUS OF USER FIRST ITS BLOCKED OR NOT 
-    8. CHECK STATUS OF USER ITS ACTIVE OR NOT 
+
     9. CHECK DELETED ACCOUNT OR NOT  
     10. REMOVE UNNECESSARY IMPORTS FILES AND CONSOLE STATEMENTS 
     11. ADD LOGGING SYSTEM TO TRACK THEM 
-    */ 
+    */
 
 // Controller for register user
 export const registerUser = asyncHandler(async (req, res) => {
@@ -56,11 +43,7 @@ export const registerUser = asyncHandler(async (req, res) => {
     // GENERATE REGISTER -- REDIS KEY
     const registerKey = cacheKeys.registerUser(email);
 
-    // COMPRESS IMAGE AND UPLOAD TO CLOUDINARYY
-    // const avatarUpload = await processImg(req.file.path, "avatars");
-    // console.log(avatarUpload)
-
-  //  SET TEMP DATA IN REDIS 
+    // SET TEMP DATA IN REDIS
     await setCache(
         registerKey,
         {
@@ -79,14 +62,15 @@ export const registerUser = asyncHandler(async (req, res) => {
         600 // 10min
     );
 
-  //  otp created
+    // SEND EMAIL FOR OTP CODE
     await createOTP({
         type: EMAIL_TYPES.REGISTER,
         email,
         username,
-        purpose: EMAIL_TYPES.REGISTER,
+        purpose: PURPOSE.OTP_EMAIL,
     });
 
+    // SEND RESPONSE TO FRONTEND
     return res.status(201).json(
         new ApiResponse(
             201,
@@ -101,36 +85,38 @@ export const registerUser = asyncHandler(async (req, res) => {
 // Controller for register verify otp
 export const registerVerifyOtp = asyncHandler(async (req, res) => {
     const { email, type, otp } = req.body;
-    console.log("OTP",otp)
+
+    // GENERATE OTP, ATTEMPT AND REGISTER -- REDIS KEY
     const otpKey = cacheKeys.otp(type, email);
     const attemptKey = cacheKeys.attempt(type, email);
+    const registerKey = cacheKeys.registerUser(email);
 
+    // GET VALUE OF OTP FROM OTP REDIS KEY
     const storedOTP = await getCache(otpKey);
-    console.log("STORED_OTP: ", storedOTP)
+
     if (!storedOTP) {
         throw new ApiError(401, "OTP Expired or not found");
     }
 
+    // CHECK OTP ATTEMPTS FOR REGISTER
     const attempts = Number(await getCache(attemptKey)) || 0;
-    console.log("STORED_attempts: ", attempts)
     if (attempts >= 5) {
         await deleteCache(attemptKey);
         throw new ApiError(429, "Too many attempts ");
     }
-    console.log("STORED_OTP:", storedOTP, typeof storedOTP);
-console.log("REQUEST_OTP:", otp, typeof otp);
 
+    // INCREMENT THE ATTEMPT VALUE IF OTP NOT MATCHED
     if (storedOTP !== String(otp)) {
         await incrementCache(attemptKey);
         const ttl = await ttlCache(attemptKey);
-        
+
         if (ttl === -1) {
             await expiredCache(attemptKey, 600);
         }
         throw new ApiError(400, "Invalid OTP");
     }
 
-    const registerKey = cacheKeys.registerUser(email);
+    // GET VALUE OF REGISTER_USER FROM REGISTER REDIS KEY
     const registeredData = await getCache(registerKey);
 
     if (!registeredData) {
@@ -138,16 +124,17 @@ console.log("REQUEST_OTP:", otp, typeof otp);
         throw new ApiError(404, " Register Data Expired ");
     }
 
+    // CHANGED DATA STRING TO JSON
     const userData =
-    typeof registeredData === "string"
-    ? JSON.parse(registeredData)
-    : registeredData;
-    
+        typeof registeredData === "string"
+            ? JSON.parse(registeredData)
+            : registeredData;
+
     // COMPRESS IMAGE AND UPLOAD TO CLOUDINARYY
     const avatarUpload = await processImg(userData.avatar?.url, "avatars");
-    console.log("Avatar__Upload : ", avatarUpload)
+    console.log("Avatar__Upload : ", avatarUpload);
 
-
+    // CREATE AND SAVE USER IN DB
     const user = await User.create({
         username: userData.username,
         email: userData.email,
@@ -163,10 +150,20 @@ console.log("REQUEST_OTP:", otp, typeof otp);
         status: "active",
     });
 
+    // DELETE OTP, ATTEMPT AND REGISTER -- REDIS KEY
     await deleteCache(registerKey);
     await deleteCache(otpKey);
     await deleteCache(attemptKey);
 
+    // SEND WELCOME EMAIL MESSAGE
+    await addEmailJob({
+        type: EMAIL_TYPES.REGISTER,
+        to: email,
+        purpose: PURPOSE.REGISTER,
+        username: userData.username,
+    });
+
+    // SEND RESPONSE TO FRONTEND
     return res.status(201).json(
         new ApiResponse(
             201,
@@ -175,69 +172,75 @@ console.log("REQUEST_OTP:", otp, typeof otp);
                 username: user.username,
                 email: user.email,
             },
-            "Account created Successfully "
+            "Account created Successfully"
         )
     );
 });
 
 // Controller for verify otp
 export const verifyOtp = asyncHandler(async (req, res) => {
-    const { email, otp, type } = req.body;
+    const { email, type, otp } = req.body;
 
-    const otpkey = cacheKeys.otp(type, email);
+    // GENERATE OTP, ATTEMPT AND REGISTER -- REDIS KEY
+    const otpKey = cacheKeys.otp(type, email);
     const attemptKey = cacheKeys.attempt(type, email);
 
-    const storedOtp = getCache(otpkey);
-    if (!storedOtp) {
-        throw new ApiError(400, "OTP expired or not found");
+    // GET VALUE OF OTP FROM OTP REDIS KEY
+    const storedOTP = await getCache(otpKey);
+
+    if (!storedOTP) {
+        throw new ApiError(401, "OTP Expired or not found");
     }
 
-    const attempts = await redisClient.get(attemptKey);
-
-    if (attempts && parseInt(attempts) >= 5) {
-        await redisClient.del(otpKey);
-        throw new ApiError(429, "Too many attempts");
+    // TRACKING OTP ATTEMPT
+    const attempts = Number(await getCache(attemptKey)) || 0;
+    if (attempts >= 5) {
+        await deleteCache(attemptKey);
+        throw new ApiError(429, "Too many attempts ");
     }
 
-    if (String(storedOtp) !== String(otp)) {
-        await redisClient.incr(attemptKey);
+    // INCREMENT THE ATTEMPT VALUE IF OTP NOT MATCHED
+    if (storedOTP !== String(otp)) {
+        await incrementCache(attemptKey);
+        const ttl = await ttlCache(attemptKey);
 
-        const ttl = await redisClient.ttl(attemptKey);
         if (ttl === -1) {
-            await redisClient.expire(attemptKey, 300);
+            await expiredCache(attemptKey, 600);
         }
-
         throw new ApiError(400, "Invalid OTP");
     }
 
-    // cleanup
-    await redisClient.del(attemptKey);
-    await redisClient.del(otpKey);
+    // DELETE THE CACHE OF REDIS KEY WHICH USED
+    await deleteCache(attemptKey);
+    await deleteCache(otpKey);
 
-    const user = await User.findById(userId);
+    // USER FIND BY EMAIL
+    const user = await User.findOne(email);
     if (user) {
-        if (type === OTP_TYPES.REGISTER) {
-            user.status = "active";
-            await user.save();
+        if (type === OTP_TYPES.FORGET_PASSWORD) {
+            // GENERATE RESET-TOKEN -- REDIS KEY
+            const resetTokenKey = cacheKeys.resetToken(email);
+            // GENERATE RESET-TOKEN
+            const resetToken = await generateResetToken();
+            // GET USERID FROM USER IN STRING
+            const userId = user._id.toString();
+            // SET USER_ID IN REDIS
+            await setCache(resetTokenKey, userId, 150);
 
-            return res.status(200).json({
-                success: true,
-                message: "Account verified successfully",
+            // SET SECURE COOKIE
+            res.cookie("resetToken", resetToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                maxAge: 15 * 60 * 1000, // 15min
             });
-        } else if (type === OTP_TYPES.FORGET_PASSWORD) {
-            const resetToken = crypto.randomBytes(32).toString("hex");
 
-            await redisClient.setEx(
-                `reset:${resetToken}`,
-                600, // 10 min
-                userId
-            );
-
-            return res.status(200).json({
-                success: true,
-                message: "OTP verified",
-                resetToken,
-            });
+            // SEND RESPOSE TO FRONTEND
+            return res
+                .status(200)
+                .json(new ApiResponse(200, {}, "OTP verfied Successfully "));
+        } else if (type === OTP_TYPES.EMAIL_CHANGED) {
+            console.log("Email Changed Successfully");
         } else {
             return res.status(400).json({
                 success: false,
@@ -247,40 +250,41 @@ export const verifyOtp = asyncHandler(async (req, res) => {
     }
 });
 
+// FIXME: FLOW
 // Controller for resend otp
 export const resendOtp = asyncHandler(async (req, res) => {
-    const { userId, type } = req.body;
-
-    if (!userId || !type) {
+    const { email, type } = req.body;
+    if (!email || !type) {
         throw new ApiError(400, "userId and type are required");
     }
 
-    const cooldownKey = `otp:cooldown:${type}:${userId}`;
-
-    const isBlocked = await redisClient.get(cooldownKey);
-
-    if (isBlocked) {
-        throw new ApiError(429, "Please wait before requesting new OTP");
-    }
-
-    const user = await User.findById(userId);
-
+    const user = await User.findOne({ email });
     if (!user) {
         throw new ApiError(404, "User not found");
     }
 
-    const otpKey = `otp:${type}:${userId}`;
-    await redisClient.del(otpKey);
+    // const userId = user._id;
+    // const coolDownKey = cacheKeys.coolDownKey(type, userId);
+    const coolDownKey = cacheKeys.coolDownKey(type, email);
 
+    const isBlocked = await getCache(coolDownKey);
+    if (isBlocked) {
+        throw new ApiError(429, "Please wait before requesting new OTP");
+    }
+
+    // EXISTING EXPIRED OTP DELETE PRECAUTIONS
+    const otpKey = cacheKeys.otp(type, email);
+    await deleteCache(otpKey);
+
+    // SEND EMAIL FOR OTP CODE
     await createOTP({
-        userId: user._id,
-        email: user.email,
-        phone: user.phone,
+        type: EMAIL_TYPES.RESEND_OTP,
+        email,
         username: user.username,
-        type,
+        purpose: PURPOSE.RESEND_OTP,
     });
 
-    await redisClient.set(cooldownKey, "1", { EX: 60 });
+    await redisClient.set(coolDownKey, "1", { EX: 60 });
 
     return res.status(200).json({
         success: true,
@@ -298,7 +302,6 @@ export const loginUser = asyncHandler(async (req, res) => {
 
     // check user
     const user = await User.findOne(query).select("+password");
-
     if (!user) {
         throw new ApiError(401, "Invalid credentials");
     }
@@ -365,7 +368,7 @@ export const loginUser = asyncHandler(async (req, res) => {
                     email: user.email,
                     fullName: user.fullName,
                     avatar: user?.avatar || "",
-                    lastLogin: user.lastLogin,
+                    // lastLogin: user.lastLogin,
                 },
             },
             "Login successful"
@@ -567,11 +570,9 @@ export const ForgetPassword = asyncHandler(async (req, res) => {
     }
 
     await createOTP({
-        email: user?.email,
+        email: email,
         type: OTP_TYPES.FORGET_PASSWORD,
         purpose: OTP_TYPES.FORGET_PASSWORD,
-        phone: user?.phone,
-        userId: user._id,
         username: user.username,
     });
 
@@ -584,14 +585,14 @@ export const ForgetPassword = asyncHandler(async (req, res) => {
 export const resetPassword = asyncHandler(async (req, res) => {
     const { resetToken, newPassword } = req.body;
 
-    const userId = await redisClient.get(`reset:${resetToken}`);
+    const resetKey = cacheKeys.reset(resetToken);
 
+    const userId = await getCache(resetKey);
     if (!userId) {
         throw new ApiError(400, "Invalid or expired reset token");
     }
 
     const user = await User.findById(userId);
-
     if (!user) {
         throw new ApiError(400, "User not found");
     }
@@ -601,19 +602,19 @@ export const resetPassword = asyncHandler(async (req, res) => {
     await user.save();
 
     // delete the token from redis (one time use)
-    await redisClient.del(`reset:${resetToken}`);
+    await deleteCache(resetKey);
 
     return res
         .status(200)
-        .json(new ApiResponse(200, "Password reset successfully"));
+        .json(new ApiResponse(200, {}, "Password reset successfully"));
 });
 
 // change Password
 export const changePassword = asyncHandler(async (req, res) => {
     const { newPassword, confirmPassword } = req.body;
     const userId = req.user?.id;
-    const user = await User.findById(userId);
 
+    const user = await User.findById(userId);
     if (!user) {
         throw new ApiError(404, "User not found");
     }
@@ -623,13 +624,14 @@ export const changePassword = asyncHandler(async (req, res) => {
     await user.save();
 
     // 3. SEND EMAIL (NON-BLOCKING)
-    addEmailJob({
+    await addEmailJob({
         type: EMAIL_TYPES.PASSWORD_CHANGED,
         to: user.email,
         username: user.username,
-        time: new Date().toLocaleString(),
-        ip: req.ip,
-        device: req.headers["user-agent"],
+        purpose: PURPOSE.PASSWORD_CHANGED,
+        // time: new Date().toLocaleString(),
+        // ip: req.ip,
+        // device: req.headers["user-agent"],
     }).catch(console.error);
 
     // 4. RESPONSE

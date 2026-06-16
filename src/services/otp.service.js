@@ -32,7 +32,8 @@ export const createOTP = async ({ email, userId, username, type, purpose }) => {
 
     // add Email Job
     addEmailJob({
-        type: EMAIL_TYPES.OTP_EMAIL,
+        // type: EMAIL_TYPES.OTP_EMAIL,
+        type,
         to: email,
         purpose,
         username,

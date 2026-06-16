@@ -39,6 +39,10 @@ const cleanupWorker = new Worker(
     }
 );
 
+cleanupWorker.on(QUEUE_STATES.READY, () => {
+    console.log("🚀 Worker ready");
+});
+
 
 cleanupWorker.on(QUEUE_STATES.COMPLETED, (job) => {
     console.log(`✅ Job ${job.id} completed`);

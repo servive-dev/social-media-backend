@@ -227,7 +227,7 @@ export const loginAlertTemplate = ({
                     font-size:13px;
                     line-height:1.6;
                 ">
-                    This is an automated security alert from Instagram Clone.
+                    This is an automated security alert from Instagram Dev.
                 </p>
 
                 <p style="
@@ -235,7 +235,7 @@ export const loginAlertTemplate = ({
                     color:#9ca3af;
                     font-size:12px;
                 ">
-                    © ${new Date().getFullYear()} Instagram Clone. All rights reserved.
+                    © ${new Date().getFullYear()} Instagram Dev. All rights reserved.
                 </p>
             </div>
 

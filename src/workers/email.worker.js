@@ -7,18 +7,19 @@ import { EMAIL_TYPES } from "../constants/email.constant.js";
 import { sendEmail } from "../services/email.service.js";
 import { welcomeTemplate } from "../templates/welcome.templete.js";
 import { loginAlertTemplate } from "../templates/loginAlert.template.js";
+import { passwordChangedTemplate } from "../templates/passwordChanged.template.js";
+import { forgetPasswordTemplate } from "../templates/forgetPassword.template.js";
 
 import { deadLetterQueue } from "../queues/deadLetter.queue.js";
 import { otpEmailTemplate } from "../templates/otpEmail.template.js";
 
-// TODO: RECHECK THE MAIL TYPES AND TEMPLATE IMPLEMEATAIONS  
+// TODO: RECHECK THE MAIL TYPES AND TEMPLATE IMPLEMEATAIONS
 /*
     1. VALIDATION OF VALUES 
     2. CHECK TO IF IS STRING OR NOT 
     3. USE SWITCH CASE TO DIFFERNCIATE THE EMAIL TYPES - SEND EMAILS 
     4. WORKER TRACKING 
 */
-
 
 console.log("👷 Worker started...");
 
@@ -28,34 +29,21 @@ const worker = new Worker(
     async (job) => {
         console.log("📩 Processing:", job.data);
 
-        const {
-            type,
-            to,
-            username,
-            deviceInfo,
-            deviceType,
-            loginMethod,
-            ip,
-            location,
-            email,
-            otp,
-            purpose,
-            ...fields
-        } = job.data;
+        const { type, to, username, email, otp, purpose, ...fields } = job.data;
 
         // 🔥 VALIDATION (IMPORTANT)
         if (!to || typeof to !== "string") {
             throw new Error(`Invalid email recipient: ${to}`);
         }
 
-        console.log(job.data, "JOB DATA");
+        console.log("JOB DATA : ----->>>", job.data);
 
-        switch (type) {
-            case EMAIL_TYPES.WELCOME:
+        switch (purpose) {
+            case EMAIL_TYPES.REGISTER:
                 try {
                     await sendEmail({
                         to,
-                        subject: "Welcome to Instagram🚀",
+                        subject: "Welcome to Instagram Dev🚀",
                         html: welcomeTemplate({ username }),
                     });
                 } catch (error) {
@@ -87,16 +75,16 @@ const worker = new Worker(
                     throw error;
                 }
                 break;
+
             case EMAIL_TYPES.PASSWORD_CHANGED:
                 try {
                     await sendEmail({
                         to,
-                        subject: "Password changed Successfully",
+                        subject: "Password change",
                         html: passwordChangedTemplate({
                             username,
-                            time,
-                            ip,
-                            device
+                            purpose,
+                            otp,
                         }),
                     });
                 } catch (error) {
@@ -113,7 +101,7 @@ const worker = new Worker(
                         html: otpEmailTemplate({
                             username,
                             otp,
-                            purpose
+                            purpose,
                         }),
                     });
                 } catch (error) {
@@ -121,11 +109,29 @@ const worker = new Worker(
                     throw error;
                 }
                 break;
+                
+            case EMAIL_TYPES.FORGET_PASSWORD:
+                try {
+                    await sendEmail({
+                        to,
+                        subject: "Send OTP for forget Password",
+                        html: forgetPasswordTemplate({
+                            username,
+                            otp,
+                            purpose,
+                        }),
+                    });
+                } catch (error) {
+                    console.error("OTP email failed:", error);
+                    throw error;
+                }
+                break;
+                
             default:
                 throw new Error(`Unknown email type: ${type}`);
         }
 
-        console.log("✅ EMAIL SENT SUCCESSFULLY:", job.id);
+        console.log("✅ EMAIL SENT SUCCESSFULLY : ------->>>>>", job.id);
         return true;
     },
 

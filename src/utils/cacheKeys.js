@@ -31,6 +31,12 @@ export const cacheKeys = {
     userSearch: (q) => `userSearch:${q.toLowerCase()}`,
 
     // Add more cache key generators as needed
+   resetToken: (email) => `resetToken:${email.toLowerCase()}`,
 
+//    coolDownKey: (type, userId) => `otp:cooldown:${type}:${userId}`,
+
+   coolDownKey: (type, email) => `otp:cooldown:${type}:${email}`,
+
+   reset: (resetToken) => `reset:${resetToken}`,
 };
 

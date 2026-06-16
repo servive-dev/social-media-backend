@@ -6,7 +6,7 @@ export const welcomeTemplate = ({ username }) => {
 
       <!-- Header -->
       <div style="background:#4f46e5;padding:20px;text-align:center;color:#fff;">
-        <h1 style="margin:0;font-size:24px;">Instagram Clone 🚀</h1>
+        <h1 style="margin:0;font-size:24px;">Instagram Dev 🚀</h1>
       </div>
 
       <!-- Body -->
@@ -24,7 +24,7 @@ export const welcomeTemplate = ({ username }) => {
 
         <!-- CTA Button -->
         <div style="text-align:center;margin:30px 0;">
-          <a href="http://localhost:5001/api/v1/auth/login" 
+          <a href="http://localhost:5173/api/v1/auth/login" 
              style="
               background:#4f46e5;
               color:#fff;
@@ -34,7 +34,7 @@ export const welcomeTemplate = ({ username }) => {
               font-weight:bold;
               display:inline-block;
              ">
-            Go to Dashboard
+            Go to Login Page
           </a>
         </div>
 

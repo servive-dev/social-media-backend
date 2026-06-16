@@ -1,49 +1,70 @@
-export const passwordChangedTemplate = ({ username, time, ip, device }) => {
-   return `
-   <div style="
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: auto;
-      border: 1px solid #eee;
-      padding: 20px;
-      border-radius: 10px;
-   ">
+import { OTP_META } from "../constants/email.constant.js";
 
-      <h2 style="color: #111;">
-         🔐 Password Changed Successfully
+export const passwordChangedTemplate = ({
+  username,
+  purpose,
+  otp,
+  expiryMinutes = 3,
+}) => {
+  const data = OTP_META[purpose];
+
+  return `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>${data.title}</title>
+  </head>
+
+  <body style="margin:0; padding:0; background:#f6f9fc; font-family:Arial,sans-serif;">
+
+    <div style="max-width:600px; margin:40px auto; background:#ffffff; padding:30px; border-radius:10px;">
+      
+      <h1 style="text-align:center; font-size:30px; color:#111827; ">
+        Instagram Dev 🚀 
+      </h1>
+
+      <h2 style="text-align:center; font-size:18px; color:#111827;">
+        ${data.title}
       </h2>
 
-      <p>Hi <b>${username}</b>,</p>
+      <p style="font-size:15px; color:#4b5563;">
+        Hi <b>${username}</b>,
+      </p>
 
-      <p>
-         Your account password was recently changed successfully.
+      <p style="font-size:15px; color:#4b5563;">
+        ${data.description}
       </p>
 
       <div style="
-         background: #f6f6f6;
-         padding: 12px;
-         border-radius: 8px;
-         margin: 15px 0;
+        text-align:center;
+        font-size:32px;
+        letter-spacing:8px;
+        font-weight:bold;
+        color:${data.color};
+        background:#f3f4f6;
+        padding:15px;
+        border-radius:8px;
+        margin:20px 0;
       ">
-         <p><b>Time:</b> ${time}</p>
-         <p><b>IP Address:</b> ${ip}</p>
-         <p><b>Device:</b> ${device}</p>
+        ${otp}
       </div>
 
-      <p style="color: #555;">
-         If this was you, you can safely ignore this email.
+      <p style="font-size:14px; color:#dc2626;">
+        ⚠️ OTP valid for ${expiryMinutes} minutes
+      </p>
+      
+      <p style="font-size:14px; color:#6b7280;">
+        ${data.note}
       </p>
 
-      <p style="color: red;">
-         ⚠️ If you did NOT change your password, immediately reset it and secure your account.
-      </p>
+      <div style="margin-top:30px; font-size:12px; text-align:center; color:#9ca3af;">
+        © ${new Date().getFullYear()} Your App
+      </div>
 
-      <hr />
+    </div>
 
-      <p style="font-size: 12px; color: #999;">
-         This is an automated security email. Do not reply.
-      </p>
-
-   </div>
-   `;
+  </body>
+  </html>
+  `;
 };

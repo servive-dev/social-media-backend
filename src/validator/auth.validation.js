@@ -140,13 +140,14 @@ export const registerOtpSchema = z.object({
 });
 
 export const resendOtpSchema = z.object({
-   userId: z
-      .string({ required_error: "userId is required" })
-      .min(1, "userId cannot be empty"),
+   email: z
+        .string()
+        .email("Invalid email address")
+        .transform((email) => email.toLowerCase().trim()),
 
    type: z.enum([
       "REGISTER",
-      "FORGOT_PASSWORD",
+      "FORGET_PASSWORD",
       "EMAIL_CHANGE",
       "PHONE_CHANGE",
     ], {

@@ -1,11 +1,10 @@
-import { OTP_META } from "../constants/email.constant.js"
+import { OTP_META } from "../constants/email.constant.js";
 
-export const otpEmailTemplate = ({
+export const forgetPasswordTemplate = ({
   username,
   purpose,
   otp,
-  type ,
-  expiryMinutes = 5,
+  expiryMinutes = 3,
 }) => {
   const data = OTP_META[purpose];
 
@@ -54,7 +53,7 @@ export const otpEmailTemplate = ({
       <p style="font-size:14px; color:#dc2626;">
         ⚠️ OTP valid for ${expiryMinutes} minutes
       </p>
-
+      
       <p style="font-size:14px; color:#6b7280;">
         ${data.note}
       </p>
