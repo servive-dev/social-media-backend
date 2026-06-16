@@ -1,18 +1,18 @@
 import sharp from "sharp";
 import path from "path";
 
-export const compressAvatar = async (inputPath) => {
+export const compressImg = async (inputPath, type) => {
 
    const outerpath = path.join(
-      "public/uploads/compressed",
-      `avatar-${Date.now()}.webp`
+      `public/uploads/${type}`,
+      `${type}-${Date.now()}.webp`
    );
 
    await sharp(inputPath)
    .resize(300, 300)
    .webp(
       {
-         quality: 80
+         quality: 90
       }
    )
    .toFile(outerpath);

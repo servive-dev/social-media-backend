@@ -31,7 +31,7 @@ export const sendEmail = async ({ to, subject, html }) => {
   }
 
   const mailOptions = {
-    from: `"Instagram Clone" <${process.env.EMAIL_USER}>`,
+    from: `"Instagram Dev" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     html,

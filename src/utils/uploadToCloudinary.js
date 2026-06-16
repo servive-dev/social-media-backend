@@ -1,38 +1,24 @@
 import cloudinary from "../config/cloudinary.js";
 
-export const uploadToCloudinary = async (
-    filePath, 
-    folder, 
-    resourceType = "image"
-) => {
+export const uploadToCloudinary = async (filePath, folder, resourceType) => {
 
     const result = await cloudinary.uploader.upload(filePath, {
         folder,
-        resource_type: resourceType
+        resourceType,
     });
 
     return result;
 };
 
-
 // Delete file
-export const deleteFromCloudinary = async (
-    publicId,
-    resourceType = "image" 
-) => {
+export const deleteFromCloudinary = async (publicId, resourceType) => {
     try {
-
-        const result = await cloudinary.uploader.destroy(
-            publicId,
-            {
-                resource_type: resourceType,
-            }
-        );
+        const result = await cloudinary.uploader.destroy(publicId, {
+            resourceType,
+        });
 
         return result;
-
     } catch (error) {
-
         console.error("Cloudinary Delete Error:", error);
 
         throw error;

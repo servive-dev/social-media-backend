@@ -25,7 +25,6 @@ import {
     resetPasswordSchema,
     changePasswordSchema,
     registerOtpSchema,
-    // avatarSchema,
 } from "../validator/auth.validation.js";
 import {
     registerLimiter,

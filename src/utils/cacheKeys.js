@@ -2,6 +2,8 @@
 export const cacheKeys = {
     registerUser:(email) => `registerUser:${email}`,
 
+    avatar:(path) => `avatar:${path}`,
+
     user: (username) => `user:${username.toLowerCase()}`,
 
     userById: (userId) => `user:id:${userId}`,

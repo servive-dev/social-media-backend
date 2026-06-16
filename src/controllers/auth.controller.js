@@ -21,6 +21,7 @@ import {
 } from "../services/cache.service.js";
 import { cacheKeys } from "../utils/cacheKeys.js";
 import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
+import { processImg } from "../utils/compressAvatar.js";
 
 
 // TODO: COMPLETE FLOW RESET KRNA HAI REGISTER KA LIKE 
@@ -52,17 +53,14 @@ export const registerUser = asyncHandler(async (req, res) => {
     const { username, fullName, email, phone, dob, gender, avatar, password } =
         req.body;
 
-    // generate cachekey
+    // GENERATE REGISTER -- REDIS KEY
     const registerKey = cacheKeys.registerUser(email);
 
-    const originalPath = req.file.path;
+    // COMPRESS IMAGE AND UPLOAD TO CLOUDINARYY
+    // const avatarUpload = await processImg(req.file.path, "avatars");
+    // console.log(avatarUpload)
 
-    const uploadResult = await uploadToCloudinary(originalPath, "avatars");
-    if (!uploadResult) {
-        throw new ApiError(500, "Avatar upload failed!");
-    }
-
-    // set temp data in redis
+  //  SET TEMP DATA IN REDIS 
     await setCache(
         registerKey,
         {
@@ -73,15 +71,15 @@ export const registerUser = asyncHandler(async (req, res) => {
             dob,
             gender,
             avatar: {
-                url: uploadResult.secure_url,
-                publicId: uploadResult.public_id,
+                url: req.file?.path,
+                publicId: "",
             },
             password,
         },
         600 // 10min
     );
 
-    // otp created
+  //  otp created
     await createOTP({
         type: EMAIL_TYPES.REGISTER,
         email,
@@ -103,26 +101,29 @@ export const registerUser = asyncHandler(async (req, res) => {
 // Controller for register verify otp
 export const registerVerifyOtp = asyncHandler(async (req, res) => {
     const { email, type, otp } = req.body;
-
+    console.log("OTP",otp)
     const otpKey = cacheKeys.otp(type, email);
     const attemptKey = cacheKeys.attempt(type, email);
 
     const storedOTP = await getCache(otpKey);
+    console.log("STORED_OTP: ", storedOTP)
     if (!storedOTP) {
         throw new ApiError(401, "OTP Expired or not found");
     }
 
     const attempts = Number(await getCache(attemptKey)) || 0;
-
+    console.log("STORED_attempts: ", attempts)
     if (attempts >= 5) {
         await deleteCache(attemptKey);
         throw new ApiError(429, "Too many attempts ");
     }
+    console.log("STORED_OTP:", storedOTP, typeof storedOTP);
+console.log("REQUEST_OTP:", otp, typeof otp);
 
-    if (storedOTP !== Number(otp)) {
+    if (storedOTP !== String(otp)) {
         await incrementCache(attemptKey);
         const ttl = await ttlCache(attemptKey);
-
+        
         if (ttl === -1) {
             await expiredCache(attemptKey, 600);
         }
@@ -138,9 +139,14 @@ export const registerVerifyOtp = asyncHandler(async (req, res) => {
     }
 
     const userData =
-        typeof registeredData === "string"
-            ? JSON.parse(registeredData)
-            : registeredData;
+    typeof registeredData === "string"
+    ? JSON.parse(registeredData)
+    : registeredData;
+    
+    // COMPRESS IMAGE AND UPLOAD TO CLOUDINARYY
+    const avatarUpload = await processImg(userData.avatar?.url, "avatars");
+    console.log("Avatar__Upload : ", avatarUpload)
+
 
     const user = await User.create({
         username: userData.username,
@@ -151,8 +157,8 @@ export const registerVerifyOtp = asyncHandler(async (req, res) => {
         gender: userData.gender,
         password: userData.password,
         avatar: {
-            url: userData?.avatar?.url,
-            publicId: userData?.avatar?.publicId,
+            url: avatarUpload.secure_url,
+            publicId: avatarUpload.public_id,
         },
         status: "active",
     });

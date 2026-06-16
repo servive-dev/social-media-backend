@@ -24,7 +24,7 @@ const emailQueue = new Queue(QUEUE_NAMES.EMAIL, {
 
         backoff: {
             type: "exponential",
-            delay: 3000,
+            delay: 3000 * 60,
         },
 
         removeOnComplete: {
@@ -52,6 +52,7 @@ export const addEmailJob = async (data) => {
 
         // console.log("JOB CREATED : ", job);
         console.log("JOB ID : ", job?.id);
+        
         console.log("JOB ACTIVE:", await job.isActive());
 
         console.log("JOB COMPLETED:", await job.isCompleted());
