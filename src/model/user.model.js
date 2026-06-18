@@ -50,7 +50,7 @@ const userSchema = new mongoose.Schema(
 
         gender: {
             type: String,
-            enum: ["male", "female", "other"]
+            enum: ["Male", "Female", "Other"]
         },
 
         password: {
@@ -65,11 +65,11 @@ const userSchema = new mongoose.Schema(
         avatar: {
             url: {
                 type: String,
-                required: true,
+                default: null
             },
             publicId: {
                 type: String,
-                required: true,
+                default: null
             },
         },
 

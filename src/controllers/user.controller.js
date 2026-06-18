@@ -6,10 +6,15 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { cacheKeys } from "../utils/cacheKeys.js";
-import { getCache, setCache } from "../services/cache.service.js";
-import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
+import { deleteCache, getCache, setCache } from "../services/cache.service.js";
+import {
+    deleteFromCloudinary,
+    uploadToCloudinary,
+} from "../utils/uploadToCloudinary.js";
+import { processImg } from "../utils/compressAvatar.js";
+import { compressImg } from "../services/image.service.js";
 
-// TODO: RECHECK THE DATA FLOW AND REDIS IMPLEMENTATION 
+// TODO: RECHECK THE DATA FLOW AND REDIS IMPLEMENTATION
 /*
     1. CHECK REDIS KEY ARE GENERATE PROPERLY AND SET DATA PROPERLY 
     2. VALIDATION CHECK 
@@ -22,7 +27,6 @@ import { uploadToCloudinary } from "../utils/uploadToCloudinary.js";
     9. UPDATE CLOUIDNARY FUNCTION
     10. IF NEEDS USE PIPELINE  
 */
-
 
 // Get user profile
 export const getUserProfile = asyncHandler(async (req, res) => {
@@ -56,32 +60,27 @@ export const getUserProfile = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, user, "User fetched successfully"));
 });
 
-// FIXME: MY REQ.FILE AND USERNAME ARE NOT COMING IN UPDATE PROFILE. CHECK WHY
 // Update user profile
 export const updateUserProfile = asyncHandler(async (req, res) => {
     const userId = req.user.id;
+    const { fullName, bio, gender, website, avatar } = req.body;
 
-    const { fullName, bio, gender, website } = req.body;
-
-    // let avatarUrl;
-
-    // // 1. Agar file aayi hai
-    // if (req.file) {
-    //     const result = await uploadToCloudinary(
-    //         req.file.buffer,   // 👈 IMPORTANT (not path)
-    //         "avatars",         // folder
-    //         "image"            // resourceType
-    //     );
-
-    //     avatarUrl = result.secure_url;
-    // }
+    // 1. Agar file aayi hai
+    let avatarUpload;
+    if (req.file?.path) {
+        avatarUpload = await processImg(req.file.path, "avatars");
+        // console.log("Avatar Image Uploaded : ------->>>", avatarUpload)
+    }
 
     // Validate input
     const updateData = {};
 
     if (fullName) updateData.fullName = fullName;
     if (bio) updateData.bio = bio;
-    // if (avatar) updateData.avatar = avatar;
+    if (avatar) {
+        ((updateData.avatar.url = avatarUpload.url),
+            (updateData.avatar.publicId = avatarUpload.public_id));
+    }
     if (gender) updateData.gender = gender;
     if (website) updateData.website = website;
 
@@ -94,7 +93,9 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
         userId,
         { $set: updateData },
         { returnDocument: "after" }
-    ).lean();
+    )
+        .select("_id username fullName avatar bio website createdAt")
+        .lean();
 
     if (!user) {
         throw new ApiError(404, "User not found");
@@ -104,7 +105,7 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     const cacheKey = cacheKeys.userById(userId);
 
     // Remove the cached user data
-    await redisClient.del(cacheKey);
+    await deleteCache(cacheKey);
 
     return res
         .status(200)
@@ -113,33 +114,43 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
 
 // Update user avatar
 export const updateUserAvatar = asyncHandler(async (req, res) => {
-    const { username } = req.params;
-    const file = req.file;
+    const userId = req.user.id;
+    const { avatar } = req.body;
 
+    const file = req.file.path;
     if (!file) {
         throw new ApiError(400, "No file uploaded");
     }
 
     // Upload to Cloudinary
-    const result = await uploadToCloudinary(
-        file.buffer, // 👈 IMPORTANT (not path)
-        "avatars", // folder
-        "image" // resourceType
-    );
+    const existingUser = await User.findById(userId)
+    if (existingUser?.avatar?.publicId) {
+        await deleteFromCloudinary(existingUser.avatar.publicId, "image")
+    } 
+    const uploadAvatar = await processImg(req.file.path, "avatars");
 
     // Update user avatar in database
-    const user = await User.findOneAndUpdate(
-        { username },
-        { $set: { avatar: result.secure_url } },
+    const user = await User.findByIdAndUpdate(
+        { _id: userId },
+        { $set: {
+            avatar: {
+                url: uploadAvatar?.url,
+                publicId: uploadAvatar?.public_id
+            },
+            avatarChangedAt: Date.now()
+            }
+        },
         { returnDocument: "after" }
-    ).lean();
+    )
+        .select("_id username fullName avatar bio website createdAt")
+        .lean();
 
     if (!user) {
         throw new ApiError(404, "User not found");
     }
 
     // Invalidate cache
-    const cacheKey = cacheKeys.user(username);
+    const cacheKey = cacheKeys.user(userId);
     await redisClient.del(cacheKey);
 
     return res
@@ -149,31 +160,51 @@ export const updateUserAvatar = asyncHandler(async (req, res) => {
 
 // Delete user avatar
 export const deleteUserAvatar = asyncHandler(async (req, res) => {
-    const { username } = req.params;
-    // Update user avatar in database
-    const user = await User.findOneAndUpdate(
-        { username },
-        { $set: { avatar: null } },
-        { returnDocument: "after" }
-    ).lean();
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
 
     if (!user) {
         throw new ApiError(404, "User not found");
     }
 
-    // Invalidate cache
-    const cacheKey = cacheKeys.user(username);
-    await redisClient.del(cacheKey);
+    if (!user.avatar?.publicId) {
+        throw new ApiError(400, "Avatar not found");
+    }
 
-    return res
-        .status(200)
-        .json(new ApiResponse(200, user, "User avatar deleted successfully"));
+    await deleteFromCloudinary(user.avatar.publicId, "image");
+
+    const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+            $set: {
+                avatar: {
+                    url: null,
+                    publicId: null
+                },
+                avatarChangedAt: Date.now()
+            }
+        },
+        { returnDocument: "after" }
+    )
+    .select("_id fullName email username avatar createdAt")
+    .lean();
+
+    await redisClient.del(cacheKeys.user(userId));
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            updatedUser,
+            "User avatar deleted successfully"
+        )
+    );
 });
 
 // Get user suggestions
 export const getUserSuggestions = asyncHandler(async (req, res) => {
     const { keyword } = req.query;
-    console.log("Keyword for suggestions:", keyword);
+
     const cacheKey = cacheKeys.userSuggestions(keyword || "default");
     // Check cache first
     const catched = await getCache(cacheKey);
@@ -470,13 +501,11 @@ export const unblockUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "You cannot unblock yourself");
     }
 
-    // unblock the user 
-    const unblock = await Block.findOneAndDelete(
-        {
-            blocker: userId,
-            blocked: targetUserId   
-        }
-    )
+    // unblock the user
+    const unblock = await Block.findOneAndDelete({
+        blocker: userId,
+        blocked: targetUserId,
+    });
 
     // Invalidate caches for both users
     await redisClient.del(cacheKeys.userFollowers(targetUserId));

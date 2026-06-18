@@ -368,7 +368,7 @@ export const loginUser = asyncHandler(async (req, res) => {
                     email: user.email,
                     fullName: user.fullName,
                     avatar: user?.avatar || "",
-                    // lastLogin: user.lastLogin,
+                    
                 },
             },
             "Login successful"

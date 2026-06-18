@@ -10,10 +10,13 @@ import {
    getUserFollowers,
    getUserFollowing,
    blockUser,
-   unblockUser
+   unblockUser,
+   updateUserAvatar,
+   deleteUserAvatar
 } from '../controllers/user.controller.js';
 
 import { verifyJWT } from '../middleware/jwtVerify.middleware.js';
+import { upload } from '../middleware/multer.middleware.js';
 
 const router = Router();
 
@@ -26,7 +29,13 @@ router
    .get(verifyJWT, searchUsers);
 router
    .route('/profile')
-   .patch(verifyJWT, updateUserProfile);
+   .patch(verifyJWT, upload.single("avatar"), updateUserProfile);
+router
+   .route('/update-avatar')
+   .patch(verifyJWT, upload.single("avatar"), updateUserAvatar);
+router
+   .route('/delete-avatar')
+   .delete(verifyJWT, deleteUserAvatar);
 
 // dynamic
 router
