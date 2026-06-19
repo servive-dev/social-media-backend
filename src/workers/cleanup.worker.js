@@ -1,7 +1,7 @@
 import fs from "fs/promises"
 import { Worker } from "bullmq";
 import { QUEUE_NAMES, QUEUE_STATES } from "../constants/queue.constant.js";
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/ApiError.util.js";
 import { bullMQConnection } from "../config/bullmq.config.js";
 import { deadLetterQueue } from "../queues/deadLetter.queue.js"
 

@@ -48,7 +48,6 @@ export const registerSchema = z.object({
             .min(6, "Password must be at least 6 characters long")
             .max(100, "Password cannot exceed 100 characters"),
     })
-
     // Custom validation
     .refine(
         (data) => data.email || data.phone,
@@ -58,19 +57,6 @@ export const registerSchema = z.object({
         }
     );
 
-// Avatar validation (req.file ke liye)
-// export const avatarSchema = z.object({
-//     // mimetype: z.enum([
-//     //     "image/jpeg",
-//     //     "image/png",
-//     //     "image/webp",
-//     //     "image/jpg",
-//     // ]),
-
-//     size: z
-//         .number()
-//         .max(50 * 1024 * 1024, "Avatar must be less than 50MB"),
-// });
 
 export const loginSchema = z.object({
     username: z
@@ -187,7 +173,6 @@ export const resetPasswordSchema = z.object({
 });
 
 export const changePasswordSchema = z.object({
-
    newPassword: z
       .string({ required_error: "Password is required" })
       .min(6, "Password must be at least 6 characters")

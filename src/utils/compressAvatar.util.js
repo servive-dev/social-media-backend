@@ -1,5 +1,5 @@
 import fs from "fs/promises";
-import { uploadToCloudinary } from "./uploadToCloudinary.js";
+import { uploadToCloudinary } from "../helper/cloudinary/uploadToCloudinary.js";
 import { compressImg } from "../services/image.service.js";
 import { addCleanUpJob } from "../queues/cleanUp.queue.js";
 

@@ -1,11 +1,11 @@
 import { User } from "../model/user.model.js";
 import { Session } from "../model/session.model.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
-import { ApiError } from "../utils/ApiError.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiResponse } from "../utils/ApiResponse.util.js";
+import { ApiError } from "../utils/ApiError.util.js";
+import { asyncHandler } from "../utils/asyncHandler.util.js";
 import { EMAIL_TYPES, OTP_TYPES } from "../constants/email.constant.js";
 import { addEmailJob } from "../queues/email.queue.js";
-import { createSession } from "../utils/createSession.js";
+import { createSession } from "../services/createSession.service.js";
 import { createOTP } from "../services/otp.service.js";
 import jwt from "jsonwebtoken";
 import {
@@ -16,10 +16,10 @@ import {
     ttlCache,
     expiredCache,
 } from "../services/cache.service.js";
-import { cacheKeys } from "../utils/cacheKeys.js";
-import { processImg } from "../utils/compressAvatar.js";
+import { cacheKeys } from "../utils/cacheKeys.util.js";
+import { processImg } from "../utils/compressAvatar.util.js";
 import { PURPOSE } from "../constants/auth.constant.js";
-import { generateResetToken } from "../utils/jwt.js";
+import { generateResetToken } from "../utils/token.util.js";
 
 // TODO: COMPLETE FLOW RESET KRNA HAI REGISTER KA LIKE
 /*  

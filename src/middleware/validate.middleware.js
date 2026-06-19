@@ -1,4 +1,4 @@
-import { ApiError } from "../utils/ApiError.js";
+import { ApiError } from "../utils/ApiError.util.js";
 
 // IT'S A MIDDLEWARE TO VALIDATE THE REQUEST BODY USING ZOD SCHEMAS
 export const validate = (schema) => (req, res, next) => {

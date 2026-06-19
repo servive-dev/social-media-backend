@@ -13,7 +13,6 @@ export const generateAccessToken = (user) => {
   );
 };
 
-
 export const generateRefreshToken = (user) => {
   return jwt.sign(
     {
@@ -24,7 +23,7 @@ export const generateRefreshToken = (user) => {
   );
 };
 
-export const generateResetToken = () => {
-    const resetToken = crypto.randomBytes(32).toString("hex");
+export const generateResetToken = (bytes) => {
+    const resetToken = crypto.randomBytes(bytes).toString("hex");
     return resetToken;
 }

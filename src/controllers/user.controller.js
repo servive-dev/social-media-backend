@@ -2,16 +2,14 @@ import { User } from "../model/user.model.js";
 import { Follow } from "../model/follow.model.js";
 import { Block } from "../model/block.model.js";
 import redisClient from "../config/redis.config.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
-import { ApiError } from "../utils/ApiError.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { cacheKeys } from "../utils/cacheKeys.js";
+import { ApiResponse } from "../utils/ApiResponse.util.js";
+import { ApiError } from "../utils/ApiError.util.js";
+import { asyncHandler } from "../utils/asyncHandler.util.js";
+import { cacheKeys } from "../utils/cacheKeys.util.js";
 import { deleteCache, getCache, setCache } from "../services/cache.service.js";
-import {
-    deleteFromCloudinary,
-    uploadToCloudinary,
-} from "../utils/uploadToCloudinary.js";
-import { processImg } from "../utils/compressAvatar.js";
+import { uploadToCloudinary } from "../helper/cloudinary/uploadToCloudinary.js";
+import { deleteFromCloudinary } from "../helper/cloudinary/deleteFromCloudinary.js";
+import { processImg } from "../utils/compressAvatar.util.js";
 import { compressImg } from "../services/image.service.js";
 
 // TODO: RECHECK THE DATA FLOW AND REDIS IMPLEMENTATION

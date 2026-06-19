@@ -5,13 +5,13 @@ import { QUEUE_NAMES, QUEUE_STATES } from "../constants/queue.constant.js";
 import { EMAIL_TYPES } from "../constants/email.constant.js";
 
 import { sendEmail } from "../services/email.service.js";
-import { welcomeTemplate } from "../templates/welcome.templete.js";
-import { loginAlertTemplate } from "../templates/loginAlert.template.js";
-import { passwordChangedTemplate } from "../templates/passwordChanged.template.js";
-import { forgetPasswordTemplate } from "../templates/forgetPassword.template.js";
+import { welcomeTemplate } from "../helper/templates/welcome.templete.js";
+import { otpEmailTemplate } from "../helper/templates/otpEmail.template.js";
+import { loginAlertTemplate } from "../helper/templates/loginAlert.template.js";
+import { passwordChangedTemplate } from "../helper/templates/passwordChanged.template.js";
+import { forgetPasswordTemplate } from "../helper/templates/forgetPassword.template.js";
 
 import { deadLetterQueue } from "../queues/deadLetter.queue.js";
-import { otpEmailTemplate } from "../templates/otpEmail.template.js";
 
 // TODO: RECHECK THE MAIL TYPES AND TEMPLATE IMPLEMEATAIONS
 /*

@@ -1,75 +1,60 @@
 import multer from "multer";
 import path from "path";
+import fs from "fs";
+import { generateResetToken } from "../utils/token.util.js";
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        if (file.fieldname === "avatar") {
-            cb(null, "public/uploads/avatars");
-        }
-
-        if (file.fieldname === "post") {
-            cb(null, "public/uploads/posts");
-        }
-
-        if (file.fieldname === "reel") {
-            cb(null, "public/uploads/reels");
-        }
+const UPLOAD_CONFIG = {
+    avatar: {
+        folder: "public/uploads/avatars",
+        mime: ["image/jpeg", "image/png", "image/webp"]
     },
-
-    filename: function (req, file, cb) {
-        const date = new Date().toISOString().split("T")[0]; // --- 2026/06/13
-
-        let uniqueName;
-        if (file.fieldname === "avatar") {
-            uniqueName =
-                date + "-" + "avatar" + "-" + Math.round(Math.random() * 1e9);
-        }
-
-        if (file.fieldname === "post") {
-            uniqueName =
-                date + "-" + "post" + "-" + Math.round(Math.random() * 1e9);
-        }
-
-        if (file.fieldname === "reel") {
-            uniqueName =
-                date + "-" + "reel" + "-" + Math.round(Math.random() * 1e9);
-        }
-
-        cb(null, uniqueName + path.extname(file.originalname));
+    post: {
+        folder: "public/uploads/posts",
+        mime: ["image/jpeg", "image/png", "image/webp"]
     },
+    reel: {
+        folder: "public/uploads/reels",
+        mime: ["video/mp4", "video/quicktime"]
+    }
+};
+
+// Auto create folders
+Object.values(UPLOAD_CONFIG).forEach((cfg) => {
+    fs.mkdirSync(cfg.folder, { recursive: true });
 });
 
-// File Filter
-const fileFilter = (req, file, cb) => {
-    if (file.fieldname === "avatar") {
-        const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const date = new Date().toISOString().split("T")[0]; // --- 2026/06/13
 
-        if (allowed.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error("Only image files allowed"));
-        }
-    } else if (file.fieldname === "posts") {
-        const allowed = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const config = UPLOAD_CONFIG[file.fieldname];
+        if (!config) return cb(new Error("Invalid field"));
+        cb(null, config.folder);
+    },
 
-        if (allowed.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error("Only image files allowed"));
-        }
-    } else if (file.fieldname === "reels") {
-        const allowed = ["video/mp4", "video/quicktime"];
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        const unique = generateResetToken(12);
 
-        if (allowed.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error("Only video files allowed"));
-        }
+        cb(null, `${file.fieldname}-${date}-${unique}${ext}`);
     }
+});
+
+
+// FILTER
+const fileFilter = (req, file, cb) => {
+    const config = UPLOAD_CONFIG[file.fieldname];
+    if (!config) return cb(new Error("Invalid field"));
+
+    if (!config.mime.includes(file.mimetype)) {
+        return cb(new Error("Invalid file type"));
+    }
+
+    cb(null, true);
 };
 
 export const upload = multer({
     storage,
     fileFilter,
-    limits: { fileSize: 50 * 1024 * 1024 },
-}); // Limit file size to 50MB
+    limits: { fileSize: 50 * 1024 * 1024 }
+});

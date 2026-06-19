@@ -1,4 +1,4 @@
-import { OTP_META } from "../constants/email.constant.js";
+import { OTP_META } from "../../constants/email.constant.js";
 
 export const forgetPasswordTemplate = ({
   username,

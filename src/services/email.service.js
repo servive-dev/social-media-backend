@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 dotenv.config();
-import { ApiError } from "../utils/ApiError.js"
+import { ApiError } from "../utils/ApiError.util.js"
 
 if(!process.env.EMAIL_USER || !process.env.EMAIL_PASS){
    throw new ApiError(

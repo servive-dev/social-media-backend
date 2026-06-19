@@ -1,6 +1,12 @@
 export const notFound = (req, res) => {
    res.status(404).json({
       success: false,
-      message: `Route not found - ${req.originalUrl}`
+      data: null,
+      error: {
+         code: "ROUTE_NOT_FOUND",
+         message: "The requested route does not exist",
+         path: req.originalUrl,
+         method: req.method
+      }
    });
 };
