@@ -7,7 +7,7 @@ createRateLimiter(RATE_LIMIT.REGISTER);
 export const loginLimiter =
     createRateLimiter(RATE_LIMIT.LOGIN);
 
-export const logoutLimiter =
+export const logOutLimiter =
     createRateLimiter(RATE_LIMIT.LOGOUT);
 
 export const verifyOtpLimiter =
